@@ -6,6 +6,8 @@
 [Bb]uilds/
 Logs/
 UserSettings/
+# Ignore .meta files
+*.meta
 
 # Ignore Unity Cache files
 [Ll]ibrary/AssetImportState
