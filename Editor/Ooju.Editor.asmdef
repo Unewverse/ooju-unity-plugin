@@ -1,0 +1,12 @@
+{
+  "name": "Ooju.Editor",
+  "references": [
+    "Unity.EditorCoroutines.Editor",
+    "glTFast",
+    "glTFast.Export",
+    "Unity.Mathematics"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

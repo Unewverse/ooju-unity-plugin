@@ -1,0 +1,51 @@
+# Ignore auto-generated files and directories
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+Logs/
+UserSettings/
+
+# Ignore Unity Cache files
+[Ll]ibrary/AssetImportState
+
+# Ignore compiled .meta files (auto-generated)
+*.cs.meta
+*.asset.meta
+
+# Ignore Unity Package Manager cache
+Packages/packages-lock.json
+Packages/com.unity.package-manager*
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore Visual Studio/JetBrains Rider files
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+*.csproj
+*.pidb
+*.unityproj
+*.sln
+*.dotsettings
+*.config
+*.prefs
+
+# Ignore crash reports and logs
+sysinfo.txt
+*.stacktrace
+
+# Ignore temporary file extensions
+*.bak
+*.tmp
+*.swp
+*.lock
+
+# Ignore build artifacts
+Build/
+Builds/
