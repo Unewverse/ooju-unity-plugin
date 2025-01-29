@@ -17,8 +17,7 @@ Ooju Asset Manager is a Unity Editor plugin that allows users to upload assets. 
 
 1. Open Unity and go to **Window > Package Manager**.
 2. Click the **+** button in the top-left corner and select **Add package from git url**.
-3. Enter the following package url:
-   (GitHub link will be provided here once available).
+3. Enter the following package url: https://github.com/Unewverse/ooju-unity-plugin.git
 
 ## How to Use
 
