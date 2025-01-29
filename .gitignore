@@ -5,19 +5,13 @@
 [Bb]uild/
 [Bb]uilds/
 Logs/
-UserSettings/
-# Ignore .meta files
-*.meta
 
 # Ignore Unity Cache files
 [Ll]ibrary/AssetImportState
 
-# Ignore compiled .meta files (auto-generated)
-*.cs.meta
-*.asset.meta
-
 # Ignore Unity Package Manager cache
-Packages/packages-lock.json
+# Keep the packages-lock.json to ensure consistency
+!Packages/packages-lock.json
 Packages/com.unity.package-manager*
 
 # Ignore system-specific files
@@ -51,3 +45,9 @@ sysinfo.txt
 # Ignore build artifacts
 Build/
 Builds/
+
+# Include plugin folder explicitly
+!Assets/YourPluginName/**
+
+# Ensure .meta files are included
+!*.meta
