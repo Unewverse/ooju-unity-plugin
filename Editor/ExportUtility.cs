@@ -8,6 +8,9 @@ using System.Reflection;
 using GLTFast;
 using GLTFast.Export;
 
+using UnityEditor;
+
+
 public static class ExportUtility
 {
     public static async Task<string> CustomExportGLB(GameObject go)
@@ -18,7 +21,6 @@ public static class ExportUtility
             return null;
         }
 
-        // Check if GLTFast is installed
         if (!IsGltfFastInstalled())
         {
             Debug.LogWarning("GLTFast is not installed. Please install it via the Unity Package Manager to enable export functionality.");
@@ -84,4 +86,71 @@ public static class ExportUtility
         return System.AppDomain.CurrentDomain.GetAssemblies()
             .Any(a => a.GetName().Name == "glTFast");
     }
+
+    public static void CustomExportGLBAsync(GameObject gameObject, string outputPath, Action<bool> onComplete)
+        {
+            try
+            {
+                GameObject tempObject = GameObject.Instantiate(gameObject);
+                
+                Task<string> exportTask = CustomExportGLB(tempObject);
+                
+                EditorApplication.CallbackFunction checkTaskStatus = null;
+                checkTaskStatus = () => {
+                    if (!exportTask.IsCompleted)
+                        return;
+                    
+                    EditorApplication.update -= checkTaskStatus;
+                    
+                    try
+                    {
+                        // Now we're on the main thread, safe to call DestroyImmediate
+                        if (tempObject != null)
+                            GameObject.DestroyImmediate(tempObject);
+                            
+                        if (exportTask.IsFaulted)
+                        {
+                            Debug.LogError($"Export failed: {exportTask.Exception}");
+                            onComplete(false);
+                            return;
+                        }
+                        
+                        string tempPath = exportTask.Result;
+                        
+                        if (string.IsNullOrEmpty(tempPath) || !File.Exists(tempPath))
+                        {
+                            Debug.LogError("Export failed: No output file was generated");
+                            onComplete(false);
+                            return;
+                        }
+                        
+                        string directory = Path.GetDirectoryName(outputPath);
+                        if (!Directory.Exists(directory))
+                            Directory.CreateDirectory(directory);
+                        
+                        File.Copy(tempPath, outputPath, true);
+                        
+                        if (File.Exists(tempPath))
+                            File.Delete(tempPath);
+                            
+                        AssetDatabase.Refresh();
+                        
+                        onComplete(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"Error in export completion: {ex.Message}");
+                        onComplete(false);
+                    }
+                };
+                
+                EditorApplication.update += checkTaskStatus;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error starting export: {ex.Message}");
+                onComplete(false);
+            }
+        }
+
 }
