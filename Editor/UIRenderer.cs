@@ -5,14 +5,8 @@ using System.Collections.Generic;
 
 namespace OojiCustomPlugin
 {
-    /// <summary>
-    /// Handles the rendering of UI elements for the OOJU Asset Manager
-    /// </summary>
     public static class UIRenderer
     {
-        /// <summary>
-        /// Draws the header of the OOJU Asset Manager
-        /// </summary>
         public static void DrawHeader(string title, UIStyles styles)
         {
             Rect headerRect = EditorGUILayout.GetControlRect(false, 50);
@@ -30,12 +24,8 @@ namespace OojiCustomPlugin
             GUI.color = Color.white;
         }
 
-        /// <summary>
-        /// Draws the GLTFast installation status bar
-        /// </summary>
         public static void DrawGltfFastStatus(bool isInstalled, Action onInstallClick)
         {
-            // Draw a thin status bar for GLTFast
             Rect statusBarRect = EditorGUILayout.GetControlRect(false, 30);
             if (EditorGUIUtility.isProSkin)
             {
@@ -126,9 +116,6 @@ namespace OojiCustomPlugin
             EditorGUILayout.EndVertical();
         }
 
-        /// <summary>
-        /// Draws the account bar with user email and logout button
-        /// </summary>
         public static void DrawAccountBar(string email, Action onLogoutClick)
         {
             // Account info section - slim top bar
@@ -148,9 +135,6 @@ namespace OojiCustomPlugin
             }
         }
 
-        /// <summary>
-        /// Draws the upload section
-        /// </summary>
         public static void DrawUploadSection(
             GameObject selectedObject,
             bool isExporting,
@@ -208,9 +192,6 @@ namespace OojiCustomPlugin
             EditorGUILayout.EndVertical();
         }
 
-        /// <summary>
-        /// Draws information about the selected GameObject with export button
-        /// </summary>
         private static void DrawSelectedObjectInfo(
             GameObject selectedObject, 
             bool isExporting, 
@@ -284,9 +265,6 @@ namespace OojiCustomPlugin
             }
         }
 
-        /// <summary>
-        /// Draws the download section
-        /// </summary>
         public static void DrawDownloadSection(
             bool assetsAvailable,
             int assetCount,
@@ -410,9 +388,6 @@ namespace OojiCustomPlugin
             EditorGUILayout.EndVertical();
         }
 
-        /// <summary>
-        /// Draws a grid of assets that can be selected and downloaded
-        /// </summary>
         private static void DrawDownloadButtons(
             bool isDownloading,
             List<NetworkUtility.ExportableAsset> availableAssets,
@@ -539,15 +514,7 @@ namespace OojiCustomPlugin
             }
             
             GUILayout.Space(10);
-            
-            // // Sync button
-            // GUI.enabled = !isDownloading;
-            // if (GUILayout.Button("Sync (Check for New Assets)", styles.buttonStyle, GUILayout.Width(200), GUILayout.Height(30)))
-            // {
-            //     onSyncChangedClick?.Invoke();
-            // }
-            
-            // Restore colors and state
+
             GUI.backgroundColor = originalColor;
             GUI.enabled = true;
             
