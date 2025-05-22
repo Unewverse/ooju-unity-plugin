@@ -49,6 +49,9 @@ namespace OojiCustomPlugin
 
                     string token = responseData.access_token;
                     
+                    // Store token persistently
+                    StoreToken(token);
+                    
                     // Store token expiration if available
                     if (!string.IsNullOrEmpty(responseData.expires_at))
                     {
@@ -75,6 +78,7 @@ namespace OojiCustomPlugin
                 onFailure?.Invoke(request.error);
             }
         }
+
 
         [Serializable]
         private class LoginResponse
@@ -113,6 +117,34 @@ namespace OojiCustomPlugin
             {
                 onFailure?.Invoke($"Upload failed: {request.error}");
             }
+        }
+
+        public static void StoreToken(string token)
+        {
+            if (!string.IsNullOrEmpty(token))
+            {
+                EditorPrefs.SetString("AuthToken", token);
+                Debug.Log("Token stored successfully");
+            }
+        }
+
+        public static string GetStoredToken()
+        {
+            return EditorPrefs.GetString("AuthToken", "");
+        }
+
+        public static bool HasValidStoredToken()
+        {
+            string token = GetStoredToken();
+            return !string.IsNullOrEmpty(token) && IsTokenValid();
+        }
+
+        public static void ClearStoredToken()
+        {
+            EditorPrefs.DeleteKey("AuthToken");
+            EditorPrefs.DeleteKey("TokenExpiresAt");
+            EditorPrefs.DeleteKey("UserId");
+            Debug.Log("Token cleared");
         }
 
         public static void SetBackendUrl(string url)

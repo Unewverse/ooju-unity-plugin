@@ -17,13 +17,11 @@ public static class ExportUtility
     {
         if (go == null)
         {
-            Debug.LogError("No GameObject provided for export!");
             return null;
         }
 
         if (!IsGltfFastInstalled())
         {
-            Debug.LogWarning("GLTFast is not installed. Please install it via the Unity Package Manager to enable export functionality.");
             return null;
         }
 
@@ -35,7 +33,6 @@ public static class ExportUtility
 
             if (go.GetComponent<Renderer>() == null)
             {
-                Debug.LogError($"GameObject {go.name} does not have a Renderer component and might not be exportable.");
                 return null;
             }
 
@@ -65,12 +62,10 @@ public static class ExportUtility
             if (success && File.Exists(finalPath))
             {
                 long fileSize = new FileInfo(finalPath).Length;
-                Debug.Log($"Export successful. File size: {fileSize} bytes.");
                 return finalPath;
             }
             else
             {
-                Debug.LogError("glTFast export failed or file was not created.");
                 return null;
             }
         }
@@ -104,13 +99,11 @@ public static class ExportUtility
                     
                     try
                     {
-                        // Now we're on the main thread, safe to call DestroyImmediate
                         if (tempObject != null)
                             GameObject.DestroyImmediate(tempObject);
                             
                         if (exportTask.IsFaulted)
                         {
-                            Debug.LogError($"Export failed: {exportTask.Exception}");
                             onComplete(false);
                             return;
                         }
@@ -119,7 +112,6 @@ public static class ExportUtility
                         
                         if (string.IsNullOrEmpty(tempPath) || !File.Exists(tempPath))
                         {
-                            Debug.LogError("Export failed: No output file was generated");
                             onComplete(false);
                             return;
                         }
@@ -139,7 +131,6 @@ public static class ExportUtility
                     }
                     catch (Exception ex)
                     {
-                        Debug.LogError($"Error in export completion: {ex.Message}");
                         onComplete(false);
                     }
                 };
@@ -148,7 +139,6 @@ public static class ExportUtility
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Error starting export: {ex.Message}");
                 onComplete(false);
             }
         }

@@ -1,7 +1,7 @@
 {
   "name": "com.ooju.userassetmanager",
   "version": "1.0.0",
-  "displayName": "Ooju Asset Manager",
+  "displayName": "OOJU Asset",
   "description": "A Unity Editor plugin to manage and upload user assets.",
   "unity": "2021.1",
   "dependencies": {
