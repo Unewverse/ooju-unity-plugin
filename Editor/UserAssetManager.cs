@@ -65,7 +65,7 @@ namespace OojiCustomPlugin
         [System.Serializable] class Obj { public string id, name, type, mesh; public Xf transform; }
         [System.Serializable] class Xf  { public Vector3 position, rotation, scale; }
 
-        [MenuItem("Tools/OOJU Asset Manager")]
+        [MenuItem("OOJU/Asset Manager")]
         public static void ShowWindow()
         {
             GetWindow<UserAssetManager>("OOJU Asset Manager");
