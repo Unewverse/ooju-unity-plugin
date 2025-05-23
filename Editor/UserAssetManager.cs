@@ -65,7 +65,7 @@ namespace OojiCustomPlugin
         [System.Serializable] class Obj { public string id, name, type, mesh; public Xf transform; }
         [System.Serializable] class Xf  { public Vector3 position, rotation, scale; }
 
-        [MenuItem("Tools/OOJU Asset Manager")]
+        [MenuItem("OOJU/Asset Manager")]
         public static void ShowWindow()
         {
             GetWindow<UserAssetManager>("OOJU Asset Manager");
@@ -358,9 +358,14 @@ namespace OojiCustomPlugin
                     assetPreviews[asset.id] = defaultIcon;
                 }
 
-                string localPath = Path.Combine(Application.dataPath, "OOJU_Assets", fileName);
+                string assetsDirectory = Path.Combine(Application.dataPath, "OOJU", "Assets");
+                if (!Directory.Exists(assetsDirectory))
+                {
+                    Directory.CreateDirectory(assetsDirectory);
+                }
+                string localPath = Path.Combine(assetsDirectory, fileName);
                 bool isDownloaded = File.Exists(localPath);
-                string unityAssetPath = "Assets/OOJU_Assets/" + fileName;
+                string unityAssetPath = "Assets/OOJU/Assets/" + fileName;
 
                 if (isDownloaded && AssetDatabase.AssetPathExists(unityAssetPath))
                 {
@@ -429,7 +434,7 @@ namespace OojiCustomPlugin
                     if (assetPreviews.ContainsKey(asset.id + "_real"))
                         continue;
 
-                    string assetPath = "Assets/OOJU_Assets/" + asset.filename;
+                    string assetPath = "Assets/OOJU/Assets/" + asset.filename;
                     if (!AssetDatabase.AssetPathExists(assetPath))
                         continue;
 
@@ -548,7 +553,7 @@ namespace OojiCustomPlugin
             int downloaded = 0;
             int failed = 0;
 
-            string assetsDirectory = Path.Combine(Application.dataPath, "OOJU_Assets");
+            string assetsDirectory = Path.Combine(Application.dataPath, "OOJU", "Assets");
             if (!Directory.Exists(assetsDirectory))
             {
                 Directory.CreateDirectory(assetsDirectory);
@@ -631,7 +636,7 @@ namespace OojiCustomPlugin
                 if (asset == null || string.IsNullOrEmpty(asset.filename))
                     continue;
 
-                string assetPath = "Assets/OOJU_Assets/" + asset.filename;
+                string assetPath = "Assets/OOJU/Assets/" + asset.filename;
 
                 if (!AssetDatabase.AssetPathExists(assetPath))
                     continue;
@@ -975,7 +980,7 @@ namespace OojiCustomPlugin
                 if (!IsAssetDownloaded(asset))
                     continue;
 
-                string assetPath = "Assets/OOJU_Assets/" + asset.filename;
+                string assetPath = "Assets/OOJU/Assets/" + asset.filename;
                 if (!AssetDatabase.AssetPathExists(assetPath))
                     continue;
 
@@ -1597,7 +1602,7 @@ namespace OojiCustomPlugin
             if (string.IsNullOrEmpty(asset.filename))
                 return false;
 
-            string localPath = System.IO.Path.Combine(Application.dataPath, "OOJU_Assets", asset.filename);
+            string localPath = System.IO.Path.Combine(Application.dataPath, "OOJU", "Assets", asset.filename);
             return System.IO.File.Exists(localPath);
         }
 
@@ -1614,7 +1619,7 @@ namespace OojiCustomPlugin
             if (string.IsNullOrEmpty(asset.filename) || string.IsNullOrEmpty(asset.id))
                 yield break;
 
-            string assetPath = "Assets/OOJU_Assets/" + asset.filename;
+            string assetPath = "Assets/OOJU/Assets/" + asset.filename;
 
             if (AssetDatabase.AssetPathExists(assetPath))
             {
