@@ -2,6 +2,15 @@
 
 Ooju Asset Manager is a Unity Editor plugin that allows users to upload assets. It supports exporting GameObjects to GLB format using GLTFast and provides an intuitive interface for asset management.
 
+## Dependencies
+
+This package depends on [OOJU Interaction](https://github.com/Unewverse/ooju-unity-interaction) (`com.ooju.interaction`).  
+When you install this package, Unity will also attempt to install OOJU Interaction automatically via the Package Manager.
+
+**About OOJU Interaction:**  
+OOJU Interaction is a Unity Editor extension that provides AI-powered scene analysis, interaction generation, and animation tools for your Unity projects.  
+For more details, see the [OOJU Interaction GitHub repository](https://github.com/Unewverse/ooju-unity-interaction).
+
 ---
 
 ## Features
