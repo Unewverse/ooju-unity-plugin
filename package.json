@@ -8,6 +8,7 @@
   "category": "OOJU",
   "dependencies": {
     "com.unity.cloud.gltfast": "6.10.1",
-    "com.unity.editorcoroutines": "1.0.0"
+    "com.unity.editorcoroutines": "1.0.0",
+    "com.ooju.interaction": "0.1.0"
   }
 }
