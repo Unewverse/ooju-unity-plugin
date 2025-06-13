@@ -1,42 +1,38 @@
-# Ooju Asset Manager
+# OOJU Unity Plugin
 
-Ooju Asset Manager is a Unity Editor plugin that allows users to upload assets. It supports exporting GameObjects to GLB format using GLTFast and provides an intuitive interface for asset management.
+통합된 OOJU Unity 플러그인으로, 에셋 관리와 애니메이션 기능을 제공합니다.
 
-## Dependencies
+## 주요 기능
 
-This package depends on [OOJU Interaction](https://github.com/Unewverse/ooju-unity-interaction) (`com.ooju.interaction`).  
-When you install this package, Unity will also attempt to install OOJU Interaction automatically via the Package Manager.
+### 에셋 관리
+- 에셋 업로드/다운로드
+- 자동 동기화
+- GLB 파일 지원
+- 에셋 미리보기 생성
+- 사용자 인증 시스템
 
-**About OOJU Interaction:**  
-OOJU Interaction is a Unity Editor extension that provides AI-powered scene analysis, interaction generation, and animation tools for your Unity projects.  
-For more details, see the [OOJU Interaction GitHub repository](https://github.com/Unewverse/ooju-unity-interaction).
+### 애니메이션
+- 자동 애니메이션 (호버, 흔들림, 회전, 흔들림, 튀어오름, 크기 조절)
+- 관계형 애니메이션 (공전, 바라보기, 따라가기, 경로 이동, 스냅)
+- 애니메이션 설정 관리
+- 코루틴 기반의 부드러운 애니메이션 처리
 
----
+## 설치 방법
 
-## Features
+1. Unity Package Manager를 엽니다.
+2. '+' 버튼을 클릭하고 'Add package from git URL'을 선택합니다.
+3. `com.ooju.unityplugin`을 입력합니다.
 
-- Export GameObjects to `.glb` format using [GLTFast](https://github.com/atteneder/glTFast).
-- Manage user authentication and assets in the Unity Editor.
+## 사용 방법
 
----
+1. Unity 메뉴에서 'OOJU > Manager'를 선택하여 매니저 창을 엽니다.
+2. 에셋 관리, 애니메이션, 설정 탭을 통해 각각의 기능을 사용할 수 있습니다.
 
-## Installation
+## 의존성
 
-### Option 1: Using Unity Package Manager
+- Unity Editor Coroutines
+- GLTFast
 
-1. Open Unity and go to **Window > Package Manager**.
-2. Click the **+** button in the top-left corner and select **Add package from git url**.
-3. Enter the following package url: https://github.com/Unewverse/ooju-unity-plugin.git
+## 라이선스
 
-## How to Use
-
-1. Authenticate Your Account
-
-- Open the Ooju Asset Manager window from tools > OOJU Asset Manager.
-- Log in using your account credentials.
-
-2. Uploading Assets
-
-- Select the GameObject in your Unity scene that you want to export.
-- Open the Ooju Asset Manager window and click "Export to GLB and Upload".
-- The file will be exported and automatically stored in your account.
+이 플러그인은 OOJU의 소유이며, 라이선스가 필요합니다. 

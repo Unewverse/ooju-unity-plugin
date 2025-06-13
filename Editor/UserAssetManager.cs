@@ -358,12 +358,7 @@ namespace OojiCustomPlugin
                     assetPreviews[asset.id] = defaultIcon;
                 }
 
-                string assetsDirectory = Path.Combine(Application.dataPath, "OOJU", "Assets");
-                if (!Directory.Exists(assetsDirectory))
-                {
-                    Directory.CreateDirectory(assetsDirectory);
-                }
-                string localPath = Path.Combine(assetsDirectory, fileName);
+                string localPath = Path.Combine(Application.dataPath, "OOJU", "Assets", fileName);
                 bool isDownloaded = File.Exists(localPath);
                 string unityAssetPath = "Assets/OOJU/Assets/" + fileName;
 
@@ -1494,14 +1489,6 @@ namespace OojiCustomPlugin
 
                 string fileType = GetAssetTypeDisplay(asset);
                 GUILayout.Label(fileType, styles.assetTypeStyle);
-
-                if (IsAssetDownloaded(asset))
-                {
-                    Rect downloadedRect = GUILayoutUtility.GetRect(previewSize - 10, 16);
-                    GUI.color = Color.green;
-                    GUI.Label(downloadedRect, "✓ Downloaded", styles.assetStatusStyle);
-                    GUI.color = Color.white;
-                }
 
                 EditorGUILayout.EndVertical();
 
