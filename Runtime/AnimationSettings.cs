@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace OojuInteractionPlugin
+namespace OOJUPlugin
 {
     [System.Serializable]
     public class AnimationSettings

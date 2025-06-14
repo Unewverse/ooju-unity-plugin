@@ -2,9 +2,9 @@ using UnityEngine;
 using System.Collections;
 using UnityEditor;
 using System.Collections.Generic;
-using OojuInteractionPlugin;
+using OOJUPlugin;
 
-namespace OojuInteractionPlugin
+namespace OOJUPlugin
 {
     // Core interfaces and classes
     // TODO: Remove or implement if needed. Currently not used.

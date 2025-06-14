@@ -1,4 +1,4 @@
-namespace OojuInteractionPlugin
+namespace OOJUPlugin
 {
     public enum AnimationType
     {

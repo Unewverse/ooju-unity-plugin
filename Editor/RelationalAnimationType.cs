@@ -1,8 +1,7 @@
 namespace OOJUPlugin
 {
-    public enum RelationalType
+    public enum RelationalAnimationType
     {
-        None,
         Orbit,
         LookAt,
         Follow,

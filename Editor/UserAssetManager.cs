@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor.IMGUI.Controls;
+using OOJUPlugin;
 
 namespace OojiCustomPlugin
 {
