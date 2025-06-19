@@ -11,27 +11,22 @@ namespace OojiCustomPlugin
     {
         public static bool IsInstalled()
         {
-
             try
             {
-
                 var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
                 foreach (var assembly in assemblies)
                 {
                     string name = assembly.GetName().Name;
-
-
                     if (name == "glTFast")
                     {
-
                         return true;
                     }
                 }
 
                 return false;
             }
-            catch (Exception ex)
+            catch
             {
                 return false;
             }

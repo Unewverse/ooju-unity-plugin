@@ -51,7 +51,6 @@ namespace OojiCustomPlugin
         }
         
         private static List<string> _uploadQueue = new List<string>();
-        private static bool _uploadInProgress = false;
 
         private static void OnAssetModified(string[] paths)
         {
@@ -93,9 +92,6 @@ namespace OojiCustomPlugin
                 yield break;
             }
             
-            _uploadInProgress = true;
-            
-            
             while (_uploadQueue.Count > 0)
             {
                 string assetPath = _uploadQueue[0];
@@ -126,7 +122,7 @@ namespace OojiCustomPlugin
                 yield return new WaitForSeconds(0.2f);
             }
             
-            _uploadInProgress = false;
+
         }
         
         

@@ -6,10 +6,13 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEditor.IMGUI.Controls;
 using OojiCustomPlugin;
 using System.Text.RegularExpressions;
 using OOJUPlugin;
+using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 
 namespace OOJUPlugin
 {
@@ -23,9 +26,9 @@ namespace OOJUPlugin
         // Asset Manager variables
         private string authToken = "";
         private string uploadStatus = "";
+        private string downloadStatus = "";
         private string userEmail = "";
         private string userPassword = "";
-        private string downloadStatus = "";
         private bool autoSyncEnabled = false;
         private double lastSyncCheckTime = 0;
         private bool isCheckingAssets = false;
@@ -46,8 +49,6 @@ namespace OOJUPlugin
 
         // Asset previews
         private Dictionary<string, Texture2D> assetPreviews = new Dictionary<string, Texture2D>();
-        private int previewSize = 100;
-        private bool isGeneratingPreviews = false;
 
         // UI and styles
         private UIStyles styles;
@@ -344,7 +345,15 @@ namespace OOJUPlugin
             EditorGUI.BeginDisabledGroup(isGeneratingDescription);
             if (GUILayout.Button(new GUIContent("Suggest Interactions", "Suggest appropriate interactions for selected objects based on the scene context."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
             {
-                try { AnalyzeSceneAndSuggestInteractions(); } catch (Exception ex) { Debug.LogError($"Error in AnalyzeSceneAndSuggestInteractions: {ex.Message}"); EditorUtility.DisplayDialog("Error", $"Error in AnalyzeSceneAndSuggestInteractions: {ex.Message}", "OK"); }
+                try 
+                { 
+                    AnalyzeSceneAndSuggestInteractions(); 
+                } 
+                catch (System.Exception e) 
+                { 
+                    Debug.LogError($"Error in AnalyzeSceneAndSuggestInteractions: {e.Message}"); 
+                    EditorUtility.DisplayDialog("Error", $"Error in AnalyzeSceneAndSuggestInteractions: {e.Message}", "OK"); 
+                }
             }
             EditorGUI.EndDisabledGroup();
             GUI.backgroundColor = prevBg;
@@ -363,7 +372,7 @@ namespace OOJUPlugin
             {
                 GUILayout.Space(4);
                 EditorGUILayout.LabelField("Interaction Suggestions:", EditorStyles.boldLabel);
-                bool hasAnyValid = false;
+                bool hasAnyValidSuggestion = false;
                 foreach (var kvp in interactionSuggestions)
                 {
                     string objName = kvp.Key;
@@ -395,9 +404,9 @@ namespace OOJUPlugin
                             GUI.contentColor = prevContent;
                             GUILayout.FlexibleSpace();
                             EditorGUILayout.EndHorizontal();
-            GUILayout.Space(5);
+                            GUILayout.Space(5);
                             validFound = true;
-                            hasAnyValid = true;
+                            hasAnyValidSuggestion = true;
                         }
                     }
                     if (!validFound)
@@ -410,28 +419,6 @@ namespace OOJUPlugin
                     }
                 }
                 GUILayout.Space(8);
-            EditorGUILayout.BeginHorizontal();
-                GUILayout.FlexibleSpace();
-                prevBg = GUI.backgroundColor;
-                prevContent = GUI.contentColor;
-                GUI.backgroundColor = ButtonBgColor;
-                GUI.contentColor = ButtonTextColor;
-                EditorGUI.BeginDisabledGroup(isGeneratingDescription);
-                if (GUILayout.Button(new GUIContent("Regenerate Interaction Suggestions", "Generate interaction suggestions for the currently selected objects based on the existing scene description and your input."), GUILayout.Width(buttonWidth), GUILayout.Height(22)))
-                {
-                    try { RegenerateInteractionSuggestionsOnly(); } catch (Exception ex) { Debug.LogError($"Error in RegenerateInteractionSuggestionsOnly: {ex.Message}"); EditorUtility.DisplayDialog("Error", $"Error in RegenerateInteractionSuggestionsOnly: {ex.Message}", "OK"); }
-                }
-                EditorGUI.EndDisabledGroup();
-                GUI.backgroundColor = prevBg;
-                GUI.contentColor = prevContent;
-                GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-            }
-            else if (!string.IsNullOrEmpty(sceneDescription))
-            {
-                GUILayout.Space(4);
-                EditorGUILayout.LabelField("No interaction suggestions available.", EditorStyles.wordWrappedMiniLabel);
-                GUILayout.Space(8);
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 prevBg = GUI.backgroundColor;
@@ -441,7 +428,15 @@ namespace OOJUPlugin
                 EditorGUI.BeginDisabledGroup(isGeneratingDescription);
                 if (GUILayout.Button(new GUIContent("Regenerate Interaction Suggestions", "Generate interaction suggestions for the currently selected objects based on the existing scene description and your input."), GUILayout.Width(buttonWidth), GUILayout.Height(22)))
                 {
-                    try { RegenerateInteractionSuggestionsOnly(); } catch (Exception ex) { Debug.LogError($"Error in RegenerateInteractionSuggestionsOnly: {ex.Message}"); EditorUtility.DisplayDialog("Error", $"Error in RegenerateInteractionSuggestionsOnly: {ex.Message}", "OK"); }
+                    try 
+                    { 
+                        RegenerateInteractionSuggestionsOnly(); 
+                    } 
+                    catch (System.Exception e) 
+                    { 
+                        Debug.LogError($"Error in RegenerateInteractionSuggestionsOnly: {e.Message}"); 
+                        EditorUtility.DisplayDialog("Error", $"Error in RegenerateInteractionSuggestionsOnly: {e.Message}", "OK"); 
+                    }
                 }
                 EditorGUI.EndDisabledGroup();
                 GUI.backgroundColor = prevBg;
@@ -1329,7 +1324,6 @@ namespace OOJUPlugin
                 "jpg", "JPG",
                 "jpeg", "JPEG"
             };
-            string filters = "3D Models and Images (*.glb,*.gltf,*.fbx,*.obj,*.png,*.jpg,*.jpeg)";
             string path = EditorUtility.OpenFilePanelWithFilters("Select Files to Upload", "",
                 new string[] { "3D Models and Images", "glb,gltf,fbx,obj,png,jpg,jpeg" });
             if (!string.IsNullOrEmpty(path))
@@ -1372,13 +1366,11 @@ namespace OOJUPlugin
                 string fileName = Path.GetFileName(filePath);
                 uploadStatus = $"Uploading {uploaded + 1}/{total}: {fileName}...";
                 Repaint();
-                bool success = false;
                 yield return NetworkUtility.UploadFile(
                     filePath,
                     authToken,
                     (result) =>
                     {
-                        success = true;
                         uploaded++;
                     },
                     (error) =>
@@ -1436,6 +1428,37 @@ namespace OOJUPlugin
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 GUILayout.Label("Import Assets", styles.sectionHeaderStyle);
                 GUILayout.Space(10);
+
+                // ZIP Scene Import section
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                GUILayout.Label("Import OOJU Scene", styles.subSectionHeaderStyle);
+                GUILayout.Space(5);
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Import ZIP Scene", GUILayout.Width(150), GUILayout.Height(30)))
+                {
+                    string zipPath = EditorUtility.OpenFilePanel("Select OOJU Scene ZIP", "", "zip");
+                    if (!string.IsNullOrEmpty(zipPath))
+                    {
+                        uploadStatus = "Processing ZIP file...";
+                        EditorCoroutineUtility.StartCoroutineOwnerless(UploadZipFileCoroutine(zipPath));
+                    }
+                }
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+                if (!string.IsNullOrEmpty(uploadStatus) && uploadStatus.Contains("ZIP"))
+                {
+                    GUILayout.Space(5);
+                    MessageType messageType = uploadStatus.Contains("Error") || uploadStatus.Contains("failed")
+                        ? MessageType.Error
+                        : MessageType.Info;
+                    EditorGUILayout.HelpBox(uploadStatus, messageType);
+                }
+                EditorGUILayout.EndVertical();
+
+                GUILayout.Space(20);
+
+                // Original drag & drop area
                 Rect dropArea = GUILayoutUtility.GetRect(0, 100, GUILayout.ExpandWidth(true));
                 GUI.Box(dropArea, "");
                 if (isDraggingFile)
@@ -1732,9 +1755,9 @@ namespace OOJUPlugin
                 }
                 EditorGUILayout.EndScrollView();
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Debug.LogError($"Error in DrawAssetsGrid: {ex.Message}\n{ex.StackTrace}");
+                Debug.LogError($"Error in DrawAssetsGrid: {e.Message}\n{e.StackTrace}");
                 try
                 {
                     EditorGUILayout.EndScrollView();
@@ -1953,31 +1976,300 @@ namespace OOJUPlugin
         // DrawSettingsTab 함수 추가 (클래스 내부)
         private void DrawSettingsTab()
         {
-            EditorGUILayout.LabelField("DrawSettingsTab() not implemented.");
-        }
-    }
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Label("Asset Manager Settings", styles.sectionHeaderStyle);
+            GUILayout.Space(10);
 
-    // Dummy OISettings class
-    public class OISettings : ScriptableObject
-    {
-        public static OISettings Instance { get; } = ScriptableObject.CreateInstance<OISettings>();
-        public string SelectedLLMType = "OpenAI";
-        public string ApiKey = "";
-        public string ClaudeApiKey = "";
-        public string GeminiApiKey = "";
-        public void SaveSettings() { }
-    }
+            // Auto-sync settings
+            EditorGUILayout.BeginHorizontal();
+            EditorGUI.BeginChangeCheck();
+            autoSyncEnabled = EditorGUILayout.ToggleLeft("Enable Auto-sync (every 15 minutes)", autoSyncEnabled);
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
+            }
+            EditorGUILayout.EndHorizontal();
+            
+            if (autoSyncEnabled)
+            {
+                EditorGUILayout.HelpBox("Assets will be automatically synchronized with the server every 15 minutes.", MessageType.Info);
+            }
 
-    // Dummy OIDescriptor class
-    public static class OIDescriptor
-    {
-        public static System.Threading.Tasks.Task<string> GenerateSceneDescription()
-        {
-            return System.Threading.Tasks.Task.FromResult("Dummy scene description.");
+            GUILayout.Space(20);
+
+            // ZIP File Upload
+            EditorGUILayout.LabelField("ZIP File Upload", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Upload ZIP File", GUILayout.Width(150), GUILayout.Height(30)))
+            {
+                string zipPath = EditorUtility.OpenFilePanel("Select ZIP File", "", "zip");
+                if (!string.IsNullOrEmpty(zipPath))
+                {
+                    if (string.IsNullOrEmpty(authToken))
+                    {
+                        EditorUtility.DisplayDialog("Error", "Please log in first.", "OK");
+                    }
+                    else
+                    {
+                        uploadStatus = "Uploading ZIP file...";
+                        EditorCoroutineUtility.StartCoroutineOwnerless(UploadZipFileCoroutine(zipPath));
+                    }
+                }
+            }
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+
+            if (!string.IsNullOrEmpty(uploadStatus) && uploadStatus.Contains("ZIP"))
+            {
+                EditorGUILayout.HelpBox(uploadStatus, MessageType.Info);
+            }
+
+            GUILayout.Space(20);
+
+            // GLTFast installation status
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("GLTFast Status:", EditorStyles.boldLabel);
+            if (isGltfFastInstalled)
+            {
+                EditorGUILayout.LabelField("Installed", EditorStyles.boldLabel);
+                GUI.color = Color.green;
+                GUILayout.Label(EditorGUIUtility.IconContent("d_Valid@2x"));
+                GUI.color = Color.white;
+            }
+            else
+            {
+                EditorGUILayout.LabelField("Not Installed", EditorStyles.boldLabel);
+                if (GUILayout.Button("Install GLTFast"))
+                {
+                    InstallGltfFast();
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (!isGltfFastInstalled)
+            {
+                EditorGUILayout.HelpBox("GLTFast is required for importing glTF/GLB files. Click 'Install GLTFast' to add it to your project.", MessageType.Warning);
+            }
+
+            GUILayout.Space(20);
+
+            // Reset settings button
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            GUI.backgroundColor = new Color(0.9f, 0.6f, 0.6f);
+            if (GUILayout.Button("Reset All Settings", GUILayout.Width(150), GUILayout.Height(30)))
+            {
+                if (EditorUtility.DisplayDialog("Reset Settings",
+                    "Are you sure you want to reset all settings? This will clear your login information and preferences.",
+                    "Reset", "Cancel"))
+                {
+                    ResetAllSettings();
+                }
+            }
+            GUI.backgroundColor = Color.white;
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+
+            // Cache information
+            GUILayout.Space(20);
+            EditorGUILayout.LabelField("Cache Information", EditorStyles.boldLabel);
+            string cachePath = Path.Combine(Application.dataPath, "OOJU", "Assets");
+            if (Directory.Exists(cachePath))
+            {
+                long size = GetDirectorySize(new DirectoryInfo(cachePath));
+                EditorGUILayout.LabelField($"Cache Size: {FormatSize(size)}");
+
+                GUILayout.Space(5);
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Clear Cache", GUILayout.Width(120)))
+                {
+                    if (EditorUtility.DisplayDialog("Clear Cache",
+                        "Are you sure you want to clear the asset cache? This will delete all downloaded assets.",
+                        "Clear", "Cancel"))
+                    {
+                        ClearCache();
+                    }
+                }
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+            }
+            else
+            {
+                EditorGUILayout.LabelField("Cache is empty");
+            }
+
+            EditorGUILayout.EndVertical();
         }
-        public static System.Threading.Tasks.Task<string> RequestLLMInteraction(string prompt)
+
+        private void ClearCache()
         {
-            return System.Threading.Tasks.Task.FromResult("Dummy LLM interaction result.");
+            try
+            {
+                string cachePath = Path.Combine(Application.dataPath, "OOJU", "Assets");
+                if (Directory.Exists(cachePath))
+                {
+                    Directory.Delete(cachePath, true);
+                    AssetDatabase.Refresh();
+                    Debug.Log("Asset cache cleared successfully.");
+                    EditorUtility.DisplayDialog("Cache Cleared", "Asset cache has been cleared successfully.", "OK");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error clearing cache: {e.Message}");
+                EditorUtility.DisplayDialog("Error", $"Failed to clear cache: {e.Message}", "OK");
+            }
+        }
+
+        private long GetDirectorySize(DirectoryInfo directoryInfo)
+        {
+            long size = 0;
+            try
+            {
+                // Add file sizes
+                FileInfo[] files = directoryInfo.GetFiles();
+                foreach (FileInfo file in files)
+                {
+                    size += file.Length;
+                }
+
+                // Add subdirectory sizes
+                DirectoryInfo[] dirs = directoryInfo.GetDirectories();
+                foreach (DirectoryInfo dir in dirs)
+                {
+                    size += GetDirectorySize(dir);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error calculating directory size: {e.Message}");
+            }
+            return size;
+        }
+
+        private string FormatSize(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            int order = 0;
+            double size = bytes;
+            while (size >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                size = size / 1024;
+            }
+            return $"{size:0.##} {sizes[order]}";
+        }
+
+        private IEnumerator UploadZipFileCoroutine(string zipPath)
+        {
+            if (string.IsNullOrEmpty(zipPath) || !File.Exists(zipPath))
+            {
+                uploadStatus = "ZIP file not found.";
+                EditorUtility.DisplayDialog("Error", "ZIP file not found.", "OK");
+                yield break;
+            }
+
+            uploadStatus = "Processing ZIP file...";
+            yield return new WaitForEndOfFrame();
+
+            Task<GameObject> importTask = null;
+            GameObject resultObject = null;
+
+            try
+            {
+                importTask = OOJUSceneImportUtility.ImportSceneZipAsync(zipPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error starting import: {ex.Message}");
+                uploadStatus = $"Error starting import: {ex.Message}";
+                EditorUtility.DisplayDialog("Import Error", $"Error starting import: {ex.Message}", "OK");
+                yield break;
+            }
+
+            while (!importTask.IsCompleted)
+            {
+                uploadStatus = "Importing scene...";
+                yield return new WaitForEndOfFrame();
+            }
+
+            try
+            {
+                if (importTask.IsFaulted && importTask.Exception != null)
+                {
+                    Debug.LogError($"Error importing scene: {importTask.Exception.GetBaseException().Message}");
+                    uploadStatus = "Error importing scene from ZIP file.";
+                    EditorUtility.DisplayDialog("Import Error", "Error importing scene from ZIP file.", "OK");
+                    yield break;
+                }
+
+                resultObject = importTask.Result;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error getting import result: {ex.Message}");
+                uploadStatus = "Error getting import result.";
+                EditorUtility.DisplayDialog("Import Error", "Error getting import result.", "OK");
+                yield break;
+            }
+
+            if (resultObject != null)
+            {
+                uploadStatus = "Scene imported successfully.";
+                Selection.activeGameObject = resultObject;
+                SceneView.FrameLastActiveSceneView();
+                EditorUtility.DisplayDialog("Import Successful", "Scene has been imported successfully.", "OK");
+            }
+            else
+            {
+                uploadStatus = "No valid scene data found in ZIP file.";
+                EditorUtility.DisplayDialog("Import Failed", "No valid scene data found in ZIP file.", "OK");
+            }
+        }
+
+        private void CopyDirectory(string sourceDir, string destinationDir)
+        {
+            // Create target directory if it doesn't exist
+            Directory.CreateDirectory(destinationDir);
+
+            // Copy all files
+            foreach (string file in Directory.GetFiles(sourceDir))
+            {
+                string destFile = Path.Combine(destinationDir, Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
+
+            // Copy all subdirectories recursively
+            foreach (string dir in Directory.GetDirectories(sourceDir))
+            {
+                string destDir = Path.Combine(destinationDir, Path.GetFileName(dir));
+                CopyDirectory(dir, destDir);
+            }
+        }
+
+        private void LoadSceneInEditor(string scenePath)
+        {
+            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                EditorSceneManager.OpenScene(scenePath);
+            }
+        }
+
+        private void LoadModelInScene(string modelPath)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
+            if (prefab != null)
+            {
+                GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+                if (instance != null)
+                {
+                    Undo.RegisterCreatedObjectUndo(instance, "Import 3D Model");
+                    Selection.activeObject = instance;
+                    SceneView.FrameLastActiveSceneView();
+                }
+            }
         }
     }
 } 
