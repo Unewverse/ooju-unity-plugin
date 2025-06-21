@@ -97,7 +97,7 @@ namespace OojiCustomPlugin
         {
             if (string.IsNullOrEmpty(p.kind)) return;
 
-            GameObject prim = p.kind switch
+            GameObject? prim = p.kind switch
             {
                 "box"      => GameObject.CreatePrimitive(PrimitiveType.Cube),
                 "sphere"   => GameObject.CreatePrimitive(PrimitiveType.Sphere),

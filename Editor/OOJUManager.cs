@@ -372,7 +372,6 @@ namespace OOJUPlugin
             {
                 GUILayout.Space(4);
                 EditorGUILayout.LabelField("Interaction Suggestions:", EditorStyles.boldLabel);
-                bool hasAnyValidSuggestion = false;
                 foreach (var kvp in interactionSuggestions)
                 {
                     string objName = kvp.Key;
@@ -406,7 +405,6 @@ namespace OOJUPlugin
                             EditorGUILayout.EndHorizontal();
                             GUILayout.Space(5);
                             validFound = true;
-                            hasAnyValidSuggestion = true;
                         }
                     }
                     if (!validFound)
@@ -694,7 +692,9 @@ namespace OOJUPlugin
         private string GetFirstPersonPlayerScriptCode()
         {
             return "using UnityEngine;\n" +
-                   "// Simple first-person player controller (WASD/arrow keys + Space to jump)\n" +
+                   "using UnityEngine.InputSystem;\n" +
+                   "// Simple first-person player controller (WASD/arrow keys + Space to jump). Uses the new Input System.\n" +
+                   "[RequireComponent(typeof(CharacterController))]\n" +
                    "public class FirstPersonPlayer : MonoBehaviour\n" +
                    "{\n" +
                    "    public float speed = 5f;\n" +
@@ -704,51 +704,68 @@ namespace OOJUPlugin
                    "    private float rotationY = 0f;\n" +
                    "    private CharacterController controller;\n" +
                    "    private Vector3 velocity;\n" +
-                   "    private bool isGrounded;\n" +
+                   "    private Camera playerCamera;\n" +
+                   "\n" +
                    "    void Start()\n" +
                    "    {\n" +
                    "        controller = GetComponent<CharacterController>();\n" +
+                   "        playerCamera = GetComponentInChildren<Camera>();\n" +
                    "        // Add a camera if not present\n" +
-                   "        if (GetComponentInChildren<Camera>() == null)\n" +
+                   "        if (playerCamera == null)\n" +
                    "        {\n" +
                    "            GameObject camObj = new GameObject(\"PlayerCamera\");\n" +
                    "            camObj.transform.SetParent(transform);\n" +
-                   "            camObj.transform.localPosition = new Vector3(0, 1.6f, 0);\n" +
-                   "            camObj.AddComponent<Camera>();\n" +
+                   "            camObj.transform.localPosition = new Vector3(0, 0.6f, 0); // Adjusted height for camera pivot\n" +
+                   "            playerCamera = camObj.AddComponent<Camera>();\n" +
                    "        }\n" +
-                   "    }\n" +
-                   "    void Update()\n" +
-                   "    {\n" +
-                   "        // Move\n" +
-                   "        float h = Input.GetAxis(\"Horizontal\");\n" +
-                   "        float v = Input.GetAxis(\"Vertical\");\n" +
-                   "        Vector3 move = transform.right * h + transform.forward * v;\n" +
-                   "        if (controller != null)\n" +
-                   "            controller.Move(move * speed * Time.deltaTime);\n" +
-                   "        else\n" +
-                   "            transform.position += move * speed * Time.deltaTime;\n" +
-                   "        // Mouse look (only in play mode)\n" +
+                   "\n" +
                    "        if (Application.isPlaying)\n" +
                    "        {\n" +
-                   "            float mouseX = Input.GetAxis(\"Mouse X\") * mouseSensitivity;\n" +
-                   "            float mouseY = Input.GetAxis(\"Mouse Y\") * mouseSensitivity;\n" +
-                   "            transform.Rotate(0, mouseX, 0);\n" +
-                   "            rotationY -= mouseY;\n" +
-                   "            rotationY = Mathf.Clamp(rotationY, -90f, 90f);\n" +
-                   "            Camera cam = GetComponentInChildren<Camera>();\n" +
-                   "            if (cam)\n" +
-                   "                cam.transform.localEulerAngles = new Vector3(rotationY, 0, 0);\n" +
+                   "            Cursor.lockState = CursorLockMode.Locked;\n" +
+                   "            Cursor.visible = false;\n" +
                    "        }\n" +
-                   "        // Jump & Gravity\n" +
-                   "        if (controller != null)\n" +
+                   "    }\n" +
+                   "\n" +
+                   "    void Update()\n" +
+                   "    {\n" +
+                   "        // Do nothing if input devices are not present\n" +
+                   "        if (Keyboard.current == null || Mouse.current == null) return;\n" +
+                   "\n" +
+                   "        bool isGrounded = controller.isGrounded;\n" +
+                   "        if (isGrounded && velocity.y < 0)\n" +
                    "        {\n" +
-                   "            isGrounded = controller.isGrounded;\n" +
-                   "            if (isGrounded && velocity.y < 0)\n" +
-                   "                velocity.y = -2f;\n" +
-                   "            if (isGrounded && Input.GetKeyDown(KeyCode.Space))\n" +
-                   "                velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);\n" +
-                   "            velocity.y += gravity * Time.deltaTime;\n" +
-                   "            controller.Move(velocity * Time.deltaTime);\n" +
+                   "            velocity.y = -2f;\n" +
+                   "        }\n" +
+                   "\n" +
+                   "        // Move\n" +
+                   "        Vector2 moveInput = Vector2.zero;\n" +
+                   "        if (Keyboard.current.wKey.isPressed) moveInput.y = 1;\n" +
+                   "        if (Keyboard.current.sKey.isPressed) moveInput.y = -1;\n" +
+                   "        if (Keyboard.current.aKey.isPressed) moveInput.x = -1;\n" +
+                   "        if (Keyboard.current.dKey.isPressed) moveInput.x = 1;\n" +
+                   "\n" +
+                   "        Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;\n" +
+                   "        controller.Move(move.normalized * speed * Time.deltaTime);\n" +
+                   "\n" +
+                   "        // Jump\n" +
+                   "        if (isGrounded && Keyboard.current.spaceKey.wasPressedThisFrame)\n" +
+                   "        {\n" +
+                   "            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);\n" +
+                   "        }\n" +
+                   "\n" +
+                   "        // Gravity\n" +
+                   "        velocity.y += gravity * Time.deltaTime;\n" +
+                   "        controller.Move(velocity * Time.deltaTime);\n" +
+                   "\n" +
+                   "        // Mouse look\n" +
+                   "        if (Application.isPlaying)\n" +
+                   "        {\n" +
+                   "            Vector2 mouseDelta = Mouse.current.delta.ReadValue() * mouseSensitivity * 0.1f;\n" +
+                   "            transform.Rotate(0, mouseDelta.x, 0);\n" +
+                   "            rotationY -= mouseDelta.y;\n" +
+                   "            rotationY = Mathf.Clamp(rotationY, -90f, 90f);\n" +
+                   "            if (playerCamera != null)\n" +
+                   "                playerCamera.transform.localEulerAngles = new Vector3(rotationY, 0, 0);\n" +
                    "        }\n" +
                    "    }\n" +
                    "}";
@@ -890,7 +907,7 @@ namespace OOJUPlugin
         private string ReplaceClassNameInScript(string scriptCode, string newClassName)
         {
             if (string.IsNullOrEmpty(scriptCode) || string.IsNullOrEmpty(newClassName)) return scriptCode;
-            var regex = new System.Text.RegularExpressions.Regex(@"class\\s+([A-Za-z_][A-Za-z0-9_]*)");
+            var regex = new System.Text.RegularExpressions.Regex(@"class\s+([A-Za-z_][A-Za-z0-9_]*)");
             return regex.Replace(scriptCode, $"class {newClassName}", 1);
         }
 
@@ -1260,7 +1277,7 @@ namespace OOJUPlugin
 
         private IEnumerator CheckAssetsCoroutine()
         {
-            yield return NetworkUtility.GetAssets(
+            yield return NetworkUtility.GetExportableAssets(
                 authToken,
                 (assets) =>
                 {
@@ -1576,7 +1593,7 @@ namespace OOJUPlugin
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Error in DrawImportTab: {ex.Message}\n{ex.StackTrace}");
+                Debug.LogError($"An error occurred in the import tab: {ex.Message}");
                 try { EditorGUILayout.EndVertical(); } catch { }
             }
         }
