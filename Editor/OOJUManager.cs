@@ -49,6 +49,7 @@ namespace OOJUPlugin
 
         // Asset previews
         private Dictionary<string, Texture2D> assetPreviews = new Dictionary<string, Texture2D>();
+        private Texture2D defaultPreviewTexture;
 
         // UI and styles
         private UIStyles styles;
@@ -108,6 +109,9 @@ namespace OOJUPlugin
 
             assetSearchField = new SearchField();
 
+            // Load default preview texture
+            LoadDefaultPreviewTexture();
+
             // Use NetworkUtility to get the stored token
             authToken = NetworkUtility.GetStoredToken();
             
@@ -139,6 +143,16 @@ namespace OOJUPlugin
         {
             EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
             EditorApplication.update -= OnEditorUpdate;
+            
+            // Clear preview cache when window is closed
+            ClearPreviewCache();
+            
+            // Clean up default preview texture if we created it
+            if (defaultPreviewTexture != null && !AssetDatabase.Contains(defaultPreviewTexture))
+            {
+                DestroyImmediate(defaultPreviewTexture);
+                defaultPreviewTexture = null;
+            }
         }
 
         private void OnGUI()
@@ -198,9 +212,10 @@ namespace OOJUPlugin
                 downloadStatus = "";
                 assetsAvailable = false;
                 assetCount = 0;
+                
+                // Clear preview cache
+                ClearPreviewCache();
             });
-            GUILayout.Space(5);
-            UIRenderer.DrawGltfFastStatus(isGltfFastInstalled, InstallGltfFast);
             GUILayout.Space(10);
             // Draw the internal asset tab bar
             assetSubTab = GUILayout.Toolbar(assetSubTab, assetTabLabels, styles.tabStyle);
@@ -1256,6 +1271,10 @@ namespace OOJUPlugin
                     FilterAssets();
                     isCheckingAssets = false;
                     downloadStatus = $"Found {assetCount} assets.";
+                    
+                    // Start loading preview images
+                    StartLoadingPreviews();
+                    
                     Repaint();
                 },
                 (error) =>
@@ -1268,6 +1287,214 @@ namespace OOJUPlugin
                     Repaint();
                 }
             );
+        }
+
+        private void StartLoadingPreviews()
+        {
+            if (availableAssets == null || availableAssets.Count == 0)
+                return;
+
+            // Load previews for downloaded assets only
+            foreach (var asset in availableAssets)
+            {
+                if (asset?.id != null && !assetPreviews.ContainsKey(asset.id) && !assetPreviews.ContainsKey(asset.id + "_real"))
+                {
+                    EditorCoroutineUtility.StartCoroutineOwnerless(LoadAssetPreview(asset));
+                }
+            }
+        }
+
+
+
+        private IEnumerator LoadAssetPreview(NetworkUtility.ExportableAsset asset)
+        {
+            if (asset?.id == null) yield break;
+
+            // Only try local loading for downloaded assets
+            if (IsImageAsset(asset))
+            {
+                TryLoadLocalImagePreview(asset);
+            }
+            else if (IsModelAsset(asset))
+            {
+                TryLoadLocalModelPreview(asset);
+            }
+            else
+            {
+                // Mark as attempted for other file types
+                assetPreviews[asset.id] = null;
+            }
+            
+            yield break;
+        }
+
+        private void TryLoadLocalImagePreview(NetworkUtility.ExportableAsset asset)
+        {
+            if (asset?.filename == null || asset?.id == null) return;
+
+            // Try multiple possible paths
+            string[] possiblePaths = {
+                System.IO.Path.Combine(Application.dataPath, "OOJU", "Asset", "My Assets", asset.filename),
+                System.IO.Path.Combine(Application.dataPath, "OOJU", "Asset", "ZIP", asset.filename),
+                System.IO.Path.Combine(Application.dataPath, "OOJU_Assets", asset.filename)
+            };
+
+            foreach (string localPath in possiblePaths)
+            {
+                if (System.IO.File.Exists(localPath))
+                {
+                    try
+                    {
+                        // Use Unity's AssetDatabase for better compatibility
+                        string relativePath = "Assets" + localPath.Substring(Application.dataPath.Length);
+                        relativePath = relativePath.Replace('\\', '/');
+                        
+                        Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(relativePath);
+                        if (texture != null)
+                        {
+                            assetPreviews[asset.id + "_real"] = texture;
+                            Repaint();
+                            return;
+                        }
+                        else
+                        {
+                            // Fallback to direct file loading
+                            byte[] fileData = System.IO.File.ReadAllBytes(localPath);
+                            Texture2D directTexture = new Texture2D(2, 2);
+                            if (directTexture.LoadImage(fileData))
+                            {
+                                assetPreviews[asset.id + "_real"] = directTexture;
+                                Repaint();
+                                return;
+                            }
+                            else
+                            {
+                                DestroyImmediate(directTexture);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[OOJU] Exception loading local image preview for {asset.filename}: {ex.Message}");
+                    }
+                }
+            }
+            
+            // Mark as attempted
+            assetPreviews[asset.id] = null;
+        }
+
+
+
+        private void TryLoadLocalModelPreview(NetworkUtility.ExportableAsset asset)
+        {
+            if (asset?.filename == null || asset?.id == null) return;
+
+            // Try multiple possible paths for model files
+            string[] possiblePaths = {
+                System.IO.Path.Combine(Application.dataPath, "OOJU", "Asset", "My Assets", asset.filename),
+                System.IO.Path.Combine(Application.dataPath, "OOJU", "Asset", "ZIP", asset.filename),
+                System.IO.Path.Combine(Application.dataPath, "OOJU_Assets", asset.filename)
+            };
+
+            foreach (string localPath in possiblePaths)
+            {
+                if (System.IO.File.Exists(localPath))
+                {
+                    try
+                    {
+                        // Use Unity's AssetDatabase to get preview
+                        string relativePath = "Assets" + localPath.Substring(Application.dataPath.Length);
+                        relativePath = relativePath.Replace('\\', '/');
+                        
+                        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(relativePath);
+                        if (prefab != null)
+                        {
+                            // Generate preview using Unity's AssetPreview
+                            Texture2D preview = AssetPreview.GetAssetPreview(prefab);
+                            if (preview != null)
+                            {
+                                assetPreviews[asset.id + "_real"] = preview;
+                                Repaint();
+                                return;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[OOJU] Exception generating model preview for {asset.filename}: {ex.Message}");
+                    }
+                }
+            }
+            
+            // Mark as attempted
+            assetPreviews[asset.id] = null;
+        }
+
+        private void LoadDefaultPreviewTexture()
+        {
+            // Try to load ooju_logo.png from Resources folder
+            defaultPreviewTexture = Resources.Load<Texture2D>("ooju_logo");
+            
+            if (defaultPreviewTexture == null)
+            {
+                // Try multiple fallback icons
+                string[] fallbackIcons = {
+                    "d_DefaultAsset Icon",
+                    "DefaultAsset Icon",
+                    "d_Folder Icon",
+                    "Folder Icon"
+                };
+                
+                foreach (string iconName in fallbackIcons)
+                {
+                    defaultPreviewTexture = EditorGUIUtility.FindTexture(iconName);
+                    if (defaultPreviewTexture != null)
+                        break;
+                }
+                
+                // If still null, create a simple colored texture
+                if (defaultPreviewTexture == null)
+                {
+                    defaultPreviewTexture = CreateSimpleTexture();
+                }
+            }
+        }
+
+        private Texture2D CreateSimpleTexture()
+        {
+            Texture2D texture = new Texture2D(64, 64);
+            Color[] colors = new Color[64 * 64];
+            Color fillColor = new Color(0.3f, 0.3f, 0.3f, 1f); // Gray color
+            
+            for (int i = 0; i < colors.Length; i++)
+            {
+                colors[i] = fillColor;
+            }
+            
+            texture.SetPixels(colors);
+            texture.Apply();
+            return texture;
+        }
+
+        private void ClearPreviewCache()
+        {
+            if (assetPreviews != null)
+            {
+                // Destroy textures to free memory
+                foreach (var kvp in assetPreviews)
+                {
+                    if (kvp.Value != null && kvp.Key.EndsWith("_real"))
+                    {
+                        // Only destroy textures we created, not Unity's built-in assets
+                        if (!AssetDatabase.Contains(kvp.Value))
+                        {
+                            DestroyImmediate(kvp.Value);
+                        }
+                    }
+                }
+                assetPreviews.Clear();
+            }
         }
 
         // All helper methods (DrawImportTab, DrawAssetsTab, DrawLoginUI, HandleDragAndDrop, etc.) from UserAssetManager should be copied here and adapted as needed.
@@ -1530,7 +1757,25 @@ namespace OOJUPlugin
                 }
                 EditorGUILayout.EndHorizontal();
                 
-                // Download selected assets button
+                // Clean up selection list - remove already downloaded assets
+                if (selectedAssetIds != null && selectedAssetIds.Count > 0)
+                {
+                    var assetsToRemove = new List<string>();
+                    foreach (string assetId in selectedAssetIds)
+                    {
+                        var asset = availableAssets?.FirstOrDefault(a => a.id == assetId);
+                        if (asset != null && IsAssetDownloaded(asset))
+                        {
+                            assetsToRemove.Add(assetId);
+                        }
+                    }
+                    foreach (string assetId in assetsToRemove)
+                    {
+                        selectedAssetIds.Remove(assetId);
+                    }
+                }
+
+                // Download selected assets button (only show if there are non-downloaded assets selected)
                 if (selectedAssetIds != null && selectedAssetIds.Count > 0)
                 {
                     GUILayout.Space(5);
@@ -1707,22 +1952,33 @@ namespace OOJUPlugin
             Rect checkboxRect = new Rect(outerRect.x + 5, outerRect.y + 5, 20, 20);
             if (selectedAssetIds == null)
                 selectedAssetIds = new List<string>();
-            bool isSelected = asset.id != null && selectedAssetIds.Contains(asset.id);
-            bool newSelection = GUI.Toggle(checkboxRect, isSelected, "");
-            if (newSelection != isSelected && asset.id != null)
-            {
-                if (newSelection)
-                    selectedAssetIds.Add(asset.id);
-                else
-                    selectedAssetIds.Remove(asset.id);
-            }
+            
             bool isDownloaded = IsAssetDownloaded(asset);
+            
             if (isDownloaded)
             {
-                Rect downloadedRect = new Rect(outerRect.x + itemWidth - 25, outerRect.y + 5, 20, 20);
-                GUI.color = Color.green;
-                GUI.DrawTexture(downloadedRect, EditorGUIUtility.FindTexture("d_Installed"));
-                GUI.color = Color.white;
+                // Draw green box over checkbox for downloaded assets
+                EditorGUI.DrawRect(checkboxRect, Color.green);
+                // Optionally draw a checkmark or "✓" symbol
+                GUI.Label(checkboxRect, "✓", new GUIStyle(EditorStyles.boldLabel) 
+                { 
+                    alignment = TextAnchor.MiddleCenter, 
+                    normal = { textColor = Color.white },
+                    fontSize = 14
+                });
+            }
+            else
+            {
+                // Only show checkbox for non-downloaded assets
+                bool isSelected = asset.id != null && selectedAssetIds.Contains(asset.id);
+                bool newSelection = GUI.Toggle(checkboxRect, isSelected, "");
+                if (newSelection != isSelected && asset.id != null)
+                {
+                    if (newSelection)
+                        selectedAssetIds.Add(asset.id);
+                    else
+                        selectedAssetIds.Remove(asset.id);
+                }
             }
             int previewSize = Mathf.Min(itemWidth - 20, itemHeight - 50);
             Rect previewRect = new Rect(
@@ -1740,7 +1996,9 @@ namespace OOJUPlugin
                 {
                     assetPreviews.TryGetValue(asset.id, out preview);
                 }
-                if (preview != null)
+                
+                // Additional null check to prevent GUI errors
+                if (preview != null && preview.width > 0 && preview.height > 0)
                 {
                     float aspectRatio = (float)preview.width / preview.height;
                     Rect adjustedRect;
@@ -1788,17 +2046,49 @@ namespace OOJUPlugin
                 }
                 else
                 {
-                    Texture2D icon = GetDefaultIconForAsset(asset);
-                    if (icon != null)
+                    // Check if we're currently loading a preview for this asset
+                    bool hasAttempted = assetPreviews.ContainsKey(asset.id) || assetPreviews.ContainsKey(asset.id + "_real");
+                    bool isLoadingPreview = !hasAttempted;
+                    
+                    if (isLoadingPreview && IsImageAsset(asset))
                     {
-                        float iconSize = previewSize * 0.6f;
-                        Rect iconRect = new Rect(
-                            previewRect.x + (previewRect.width - iconSize) / 2,
-                            previewRect.y + (previewRect.height - iconSize) / 2,
-                            iconSize,
-                            iconSize
-                        );
-                        GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
+                        // Show loading indicator for image assets
+                        GUI.Label(previewRect, "Loading...", EditorStyles.centeredGreyMiniLabel);
+                    }
+                    else
+                    {
+                        // Show default preview (ooju_logo) or fallback icon
+                        Texture2D displayTexture = defaultPreviewTexture;
+                        
+                        // If default preview is not available, use type-specific icon
+                        if (displayTexture == null)
+                        {
+                            displayTexture = GetDefaultIconForAsset(asset);
+                        }
+                        
+                        // Final safety check - ensure we never pass null to GUI.DrawTexture
+                        if (displayTexture != null && displayTexture.width > 0 && displayTexture.height > 0)
+                        {
+                            float iconSize = previewSize * 0.8f; // Slightly larger for logo
+                            Rect iconRect = new Rect(
+                                previewRect.x + (previewRect.width - iconSize) / 2,
+                                previewRect.y + (previewRect.height - iconSize) / 2,
+                                iconSize,
+                                iconSize
+                            );
+                            GUI.DrawTexture(iconRect, displayTexture, ScaleMode.ScaleToFit);
+                        }
+                        else
+                        {
+                            // Last resort: draw a simple placeholder rect
+                            Rect placeholderRect = new Rect(
+                                previewRect.x + previewSize * 0.25f,
+                                previewRect.y + previewSize * 0.25f,
+                                previewSize * 0.5f,
+                                previewSize * 0.5f
+                            );
+                            EditorGUI.DrawRect(placeholderRect, new Color(0.4f, 0.4f, 0.4f, 0.8f));
+                        }
                     }
                 }
             }
@@ -1823,6 +2113,7 @@ namespace OOJUPlugin
             );
             GUI.Label(typeRect, fileType, EditorStyles.miniLabel);
         }
+
         private bool IsAssetDownloaded(NetworkUtility.ExportableAsset asset)
         {
             if (string.IsNullOrEmpty(asset.filename))
@@ -1832,18 +2123,28 @@ namespace OOJUPlugin
         }
         private Texture2D GetDefaultIconForAsset(NetworkUtility.ExportableAsset asset)
         {
+            Texture2D icon = null;
+            
             if (IsModelAsset(asset))
             {
-                return EditorGUIUtility.FindTexture("d_Mesh Icon");
+                icon = EditorGUIUtility.FindTexture("d_Mesh Icon");
             }
             else if (IsImageAsset(asset))
             {
-                return EditorGUIUtility.FindTexture("d_Image Icon");
+                icon = EditorGUIUtility.FindTexture("d_Image Icon");
             }
             else
             {
-                return EditorGUIUtility.FindTexture("d_DefaultAsset Icon");
+                icon = EditorGUIUtility.FindTexture("d_DefaultAsset Icon");
             }
+            
+            // If all else fails, try to return the default preview texture
+            if (icon == null)
+            {
+                icon = defaultPreviewTexture;
+            }
+            
+            return icon;
         }
         private string GetFileTypeDisplay(NetworkUtility.ExportableAsset asset)
         {
@@ -2087,6 +2388,9 @@ namespace OOJUPlugin
             if (downloadedCount > 0)
             {
                 selectedAssetIds.Clear();
+                
+                // Refresh preview loading for newly downloaded assets
+                StartLoadingPreviews();
             }
             
             // Show completion dialog

@@ -389,6 +389,34 @@ namespace OojiCustomPlugin
             }
         }
 
+        // Download preview image for an asset
+        public static IEnumerator DownloadAssetPreview(string assetId, string token, Action<Texture2D> onSuccess, Action<string> onFailure)
+        {
+            string previewUrl = $"{BackendUrl}/assets/{assetId}/preview";
+            
+            UnityWebRequest request = UnityWebRequestTexture.GetTexture(previewUrl);
+            request.SetRequestHeader("Authorization", $"Bearer {token}");
+            
+            yield return request.SendWebRequest();
+            
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Texture2D texture = DownloadHandlerTexture.GetContent(request);
+                if (texture != null)
+                {
+                    onSuccess?.Invoke(texture);
+                }
+                else
+                {
+                    onFailure?.Invoke("Failed to create texture from downloaded data");
+                }
+            }
+            else
+            {
+                onFailure?.Invoke($"Preview download failed: {request.error}");
+            }
+        }
+
         //Update File 
         public static IEnumerator UpdateFile(string filePath, string assetId, string token, 
             Action<bool> onSuccess, Action<string> onError)
