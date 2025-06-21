@@ -61,9 +61,7 @@ namespace OOJUPlugin
         private List<NetworkUtility.ExportableAsset> filteredAssets = new List<NetworkUtility.ExportableAsset>();
         private List<string> selectedAssetIds = new List<string>();
 
-        // Add this as a class field
-        private int assetSubTab = 0;
-        private readonly string[] assetTabLabels = { "Import", "My Assets" };
+        // Removed assetSubTab and assetTabLabels as they are no longer needed
 
         // Interaction-related fields (migrated from OOJUInteractionWindow)
         private Vector2 mainScrollPosition = Vector2.zero;
@@ -217,22 +215,174 @@ namespace OOJUPlugin
                 ClearPreviewCache();
             });
             GUILayout.Space(10);
-            // Draw the internal asset tab bar
-            assetSubTab = GUILayout.Toolbar(assetSubTab, assetTabLabels, styles.tabStyle);
-            GUILayout.Space(10);
+            
+            // Draw unified content (Import + Assets combined)
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, false, false);
-            switch (assetSubTab)
-            {
-                case 0:
-                    DrawImportTab();
-                    break;
-                case 1:
-                    DrawAssetsTab();
-                    break;
-            }
+            DrawUnifiedAssetsContent();
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawUnifiedAssetsContent()
+        {
+            try
+            {
+                // Import ZIP Scene section at the top with improved styling
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                
+                // Section icon and header (matching Interaction tab style)
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label(EditorGUIUtility.IconContent("d_FolderOpened Icon"), GUILayout.Width(22), GUILayout.Height(22));
+                GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+                sectionTitleStyle.fontSize = 14;
+                sectionTitleStyle.normal.textColor = SectionTitleColor;
+                EditorGUILayout.LabelField("Import OOJU Scene", sectionTitleStyle);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(2);
+                
+                // Description with styling matching Interaction tab
+                GUIStyle descLabelStyle = new GUIStyle(EditorStyles.label);
+                descLabelStyle.normal.textColor = DescriptionTextColor;
+                EditorGUILayout.LabelField("Import scenes created in the OOJU web application.", descLabelStyle);
+                GUILayout.Space(8);
+                
+                // Button with consistent styling
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                Color prevBg = GUI.backgroundColor;
+                Color prevContent = GUI.contentColor;
+                GUI.backgroundColor = ButtonBgColor;
+                GUI.contentColor = ButtonTextColor;
+                if (GUILayout.Button(new GUIContent("Import ZIP Scene", "Select and import a scene ZIP file exported from OOJU web app."), GUILayout.Width(150), GUILayout.Height(30)))
+                {
+                    string zipPath = EditorUtility.OpenFilePanel("Select OOJU Scene ZIP", "", "zip");
+                    if (!string.IsNullOrEmpty(zipPath))
+                    {
+                        uploadStatus = "Processing ZIP file...";
+                        EditorCoroutineUtility.StartCoroutineOwnerless(UploadZipFileCoroutine(zipPath));
+                    }
+                }
+                GUI.backgroundColor = prevBg;
+                GUI.contentColor = prevContent;
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+                
+                if (!string.IsNullOrEmpty(uploadStatus) && uploadStatus.Contains("ZIP"))
+                {
+                    GUILayout.Space(5);
+                    MessageType messageType = uploadStatus.Contains("Error") || uploadStatus.Contains("failed")
+                        ? MessageType.Error
+                        : MessageType.Info;
+                    EditorGUILayout.HelpBox(uploadStatus, messageType);
+                }
+                EditorGUILayout.EndVertical();
+                
+                GUILayout.Space(15);
+                
+                // My Assets section below
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                // Header with search
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label("My Assets", styles.sectionHeaderStyle, GUILayout.ExpandWidth(false));
+                GUILayout.FlexibleSpace();
+                if (assetSearchField == null)
+                    assetSearchField = new SearchField();
+                string newSearch = assetSearchField.OnGUI(
+                    GUILayoutUtility.GetRect(100, 200, 18, 18, GUILayout.ExpandWidth(true), GUILayout.MaxWidth(300)),
+                    assetSearchQuery);
+                if (newSearch != assetSearchQuery)
+                {
+                    assetSearchQuery = newSearch;
+                    FilterAssets();
+                }
+                if (GUILayout.Button(new GUIContent(styles.refreshIcon), styles.iconButtonStyle, GUILayout.Width(24), GUILayout.Height(24)))
+                {
+                    CheckAssets();
+                }
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(10);
+                
+                // Stats and controls
+                EditorGUILayout.BeginHorizontal();
+                if (assetsAvailable && filteredAssets != null)
+                {
+                    GUILayout.Label($"{filteredAssets.Count} of {assetCount} assets", EditorStyles.boldLabel);
+                }
+                else if (isCheckingAssets)
+                {
+                    GUILayout.Label("Loading assets...", EditorStyles.boldLabel);
+                }
+                else
+                {
+                    GUILayout.Label("No assets available", EditorStyles.boldLabel);
+                }
+                GUILayout.FlexibleSpace();
+                EditorGUI.BeginChangeCheck();
+                autoSyncEnabled = EditorGUILayout.ToggleLeft($"Auto-sync every 15m", autoSyncEnabled, GUILayout.Width(150));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
+                }
+                EditorGUILayout.EndHorizontal();
+                
+                // Clean up selection list - remove already downloaded assets
+                if (selectedAssetIds != null && selectedAssetIds.Count > 0)
+                {
+                    var assetsToRemove = new List<string>();
+                    foreach (string assetId in selectedAssetIds)
+                    {
+                        var asset = availableAssets?.FirstOrDefault(a => a.id == assetId);
+                        if (asset != null && IsAssetDownloaded(asset))
+                        {
+                            assetsToRemove.Add(assetId);
+                        }
+                    }
+                    foreach (string assetId in assetsToRemove)
+                    {
+                        selectedAssetIds.Remove(assetId);
+                    }
+                }
+
+                // Download selected assets button (only show if there are non-downloaded assets selected)
+                if (selectedAssetIds != null && selectedAssetIds.Count > 0)
+                {
+                    GUILayout.Space(5);
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUI.enabled = !isDownloading;
+                    GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f);
+                    if (GUILayout.Button($"Download {selectedAssetIds.Count} Selected Asset(s)", GUILayout.Width(250), GUILayout.Height(30)))
+                    {
+                        DownloadSelectedAssets();
+                    }
+                    GUI.backgroundColor = Color.white;
+                    GUI.enabled = true;
+                    GUILayout.FlexibleSpace();
+                    EditorGUILayout.EndHorizontal();
+                }
+                
+                GUILayout.Space(10);
+                // Asset grid or info
+                if (assetsAvailable && filteredAssets != null && filteredAssets.Count > 0)
+                {
+                    DrawAssetsGrid();
+                }
+                else if (isCheckingAssets)
+                {
+                    GUILayout.Label("Checking for assets...", styles.infoBoxStyle);
+                }
+                else
+                {
+                    GUILayout.Label("No assets found.", styles.noAssetsStyle);
+                }
+                EditorGUILayout.EndVertical();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error in DrawUnifiedAssetsContent: {ex.Message}\n{ex.StackTrace}");
+                try { EditorGUILayout.EndVertical(); } catch { }
+            }
         }
 
         private void DrawInteractionTab()
@@ -1667,154 +1817,7 @@ namespace OOJUPlugin
 
             EditorGUILayout.EndVertical();
         }
-        private void DrawImportTab()
-        {
-            try
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                GUILayout.Label("Import Assets", styles.sectionHeaderStyle);
-                GUILayout.Space(10);
-
-                // ZIP Scene Import section
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                GUILayout.Label("Import OOJU Scene", styles.subSectionHeaderStyle);
-                GUILayout.Space(5);
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Import ZIP Scene", GUILayout.Width(150), GUILayout.Height(30)))
-                {
-                    string zipPath = EditorUtility.OpenFilePanel("Select OOJU Scene ZIP", "", "zip");
-                    if (!string.IsNullOrEmpty(zipPath))
-                    {
-                        uploadStatus = "Processing ZIP file...";
-                        EditorCoroutineUtility.StartCoroutineOwnerless(UploadZipFileCoroutine(zipPath));
-                    }
-                }
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.EndHorizontal();
-                if (!string.IsNullOrEmpty(uploadStatus) && uploadStatus.Contains("ZIP"))
-                {
-                    GUILayout.Space(5);
-                    MessageType messageType = uploadStatus.Contains("Error") || uploadStatus.Contains("failed")
-                        ? MessageType.Error
-                        : MessageType.Info;
-                    EditorGUILayout.HelpBox(uploadStatus, messageType);
-                }
-                EditorGUILayout.EndVertical();
-                EditorGUILayout.EndVertical();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"An error occurred in the import tab: {ex.Message}");
-                try { EditorGUILayout.EndVertical(); } catch { }
-            }
-        }
-        private void DrawAssetsTab()
-        {
-            try
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                // Header with search
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Label("My Assets", styles.sectionHeaderStyle, GUILayout.ExpandWidth(false));
-                GUILayout.FlexibleSpace();
-                if (assetSearchField == null)
-                    assetSearchField = new SearchField();
-                string newSearch = assetSearchField.OnGUI(
-                    GUILayoutUtility.GetRect(100, 200, 18, 18, GUILayout.ExpandWidth(true), GUILayout.MaxWidth(300)),
-                    assetSearchQuery);
-                if (newSearch != assetSearchQuery)
-                {
-                    assetSearchQuery = newSearch;
-                    FilterAssets();
-                }
-                if (GUILayout.Button(new GUIContent(styles.refreshIcon), styles.iconButtonStyle, GUILayout.Width(24), GUILayout.Height(24)))
-                {
-                    CheckAssets();
-                }
-                EditorGUILayout.EndHorizontal();
-                GUILayout.Space(10);
-                // Stats and controls
-                EditorGUILayout.BeginHorizontal();
-                if (assetsAvailable && filteredAssets != null)
-                {
-                    GUILayout.Label($"{filteredAssets.Count} of {assetCount} assets", EditorStyles.boldLabel);
-                }
-                else if (isCheckingAssets)
-                {
-                    GUILayout.Label("Loading assets...", EditorStyles.boldLabel);
-                }
-                else
-                {
-                    GUILayout.Label("No assets available", EditorStyles.boldLabel);
-                }
-                GUILayout.FlexibleSpace();
-                EditorGUI.BeginChangeCheck();
-                autoSyncEnabled = EditorGUILayout.ToggleLeft($"Auto-sync every 15m", autoSyncEnabled, GUILayout.Width(150));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
-                }
-                EditorGUILayout.EndHorizontal();
-                
-                // Clean up selection list - remove already downloaded assets
-                if (selectedAssetIds != null && selectedAssetIds.Count > 0)
-                {
-                    var assetsToRemove = new List<string>();
-                    foreach (string assetId in selectedAssetIds)
-                    {
-                        var asset = availableAssets?.FirstOrDefault(a => a.id == assetId);
-                        if (asset != null && IsAssetDownloaded(asset))
-                        {
-                            assetsToRemove.Add(assetId);
-                        }
-                    }
-                    foreach (string assetId in assetsToRemove)
-                    {
-                        selectedAssetIds.Remove(assetId);
-                    }
-                }
-
-                // Download selected assets button (only show if there are non-downloaded assets selected)
-                if (selectedAssetIds != null && selectedAssetIds.Count > 0)
-                {
-                    GUILayout.Space(5);
-                    EditorGUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                    GUI.enabled = !isDownloading;
-                    GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f);
-                    if (GUILayout.Button($"Download {selectedAssetIds.Count} Selected Asset(s)", GUILayout.Width(250), GUILayout.Height(30)))
-                    {
-                        DownloadSelectedAssets();
-                    }
-                    GUI.backgroundColor = Color.white;
-                    GUI.enabled = true;
-                    GUILayout.FlexibleSpace();
-                    EditorGUILayout.EndHorizontal();
-                }
-                
-                GUILayout.Space(10);
-                // Asset grid or info
-                if (assetsAvailable && filteredAssets != null && filteredAssets.Count > 0)
-                {
-                    DrawAssetsGrid();
-                }
-                else if (isCheckingAssets)
-                {
-                    GUILayout.Label("Checking for assets...", styles.infoBoxStyle);
-                }
-                else
-                {
-                    GUILayout.Label("No assets found.", styles.noAssetsStyle);
-                }
-                EditorGUILayout.EndVertical();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"Error in DrawAssetsTab: {ex.Message}\n{ex.StackTrace}");
-                try { EditorGUILayout.EndVertical(); } catch { }
-            }
-        }
+        // DrawImportTab and DrawAssetsTab methods removed - functionality merged into DrawUnifiedAssetsContent
         private void DrawSelectedObjectInfo(GameObject selectedObject)
         {
             // ... (copy the full DrawSelectedObjectInfo implementation from UserAssetManager)
