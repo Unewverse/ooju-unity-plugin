@@ -62,7 +62,7 @@ namespace OojiCustomPlugin
                     string dstPath = "";
                     await Task.Run(() =>
                     {
-                        const string dstDir = "Assets/OOJU/Asset";
+                        const string dstDir = "Assets/OOJU/Asset/ZIP";
                         Directory.CreateDirectory(dstDir);
                         // Use the object's name for the file instead of the original mesh filename
                         string objectName = string.IsNullOrEmpty(ob.name) ? ob.id : ob.name;

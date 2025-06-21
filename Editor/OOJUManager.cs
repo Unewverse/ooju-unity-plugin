@@ -1225,10 +1225,18 @@ namespace OOJUPlugin
 
         private IEnumerator CheckAssetsCoroutine()
         {
+            Debug.Log($"[OOJU] Checking assets with token: {authToken?.Substring(0, Math.Min(10, authToken.Length))}...");
+            
             yield return NetworkUtility.GetExportableAssets(
                 authToken,
                 (assets) =>
                 {
+                    Debug.Log($"[OOJU] Successfully received {assets.Count} assets from server");
+                    foreach (var asset in assets.Take(3)) // Log first 3 assets for debugging
+                    {
+                        Debug.Log($"[OOJU] Asset: {asset.filename}, ID: {asset.id}, Type: {asset.content_type}");
+                    }
+                    
                     availableAssets = assets;
                     assetCount = assets.Count;
                     assetsAvailable = assetCount > 0;
@@ -1239,7 +1247,7 @@ namespace OOJUPlugin
                 },
                 (error) =>
                 {
-                    Debug.LogError($"Error checking assets: {error}");
+                    Debug.LogError($"[OOJU] Error checking assets: {error}");
                     downloadStatus = $"Error checking assets: {error}";
                     isCheckingAssets = false;
                     assetsAvailable = false;
@@ -1508,6 +1516,25 @@ namespace OOJUPlugin
                     EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
                 }
                 EditorGUILayout.EndHorizontal();
+                
+                // Download selected assets button
+                if (selectedAssetIds != null && selectedAssetIds.Count > 0)
+                {
+                    GUILayout.Space(5);
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUI.enabled = !isDownloading;
+                    GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f);
+                    if (GUILayout.Button($"Download {selectedAssetIds.Count} Selected Asset(s)", GUILayout.Width(250), GUILayout.Height(30)))
+                    {
+                        DownloadSelectedAssets();
+                    }
+                    GUI.backgroundColor = Color.white;
+                    GUI.enabled = true;
+                    GUILayout.FlexibleSpace();
+                    EditorGUILayout.EndHorizontal();
+                }
+                
                 GUILayout.Space(10);
                 // Asset grid or info
                 if (assetsAvailable && filteredAssets != null && filteredAssets.Count > 0)
@@ -1786,7 +1813,7 @@ namespace OOJUPlugin
         {
             if (string.IsNullOrEmpty(asset.filename))
                 return false;
-            string localPath = System.IO.Path.Combine(Application.dataPath, "OOJU", "Assets", asset.filename);
+            string localPath = System.IO.Path.Combine(Application.dataPath, "OOJU", "Asset", "My Assets", asset.filename);
             return System.IO.File.Exists(localPath);
         }
         private Texture2D GetDefaultIconForAsset(NetworkUtility.ExportableAsset asset)
@@ -1972,6 +1999,87 @@ namespace OOJUPlugin
                     SceneView.FrameLastActiveSceneView();
                 }
             }
+        }
+
+        private void DownloadSelectedAssets()
+        {
+            if (selectedAssetIds == null || selectedAssetIds.Count == 0)
+            {
+                EditorUtility.DisplayDialog("No Selection", "Please select at least one asset to download.", "OK");
+                return;
+            }
+            
+            isDownloading = true;
+            downloadStatus = $"Starting download of {selectedAssetIds.Count} asset(s)...";
+            EditorCoroutineUtility.StartCoroutineOwnerless(DownloadSelectedAssetsCoroutine());
+        }
+        
+        private IEnumerator DownloadSelectedAssetsCoroutine()
+        {
+            string downloadDir = System.IO.Path.Combine(Application.dataPath, "OOJU", "Asset", "My Assets");
+            System.IO.Directory.CreateDirectory(downloadDir);
+            
+            int totalAssets = selectedAssetIds.Count;
+            int downloadedCount = 0;
+            int failedCount = 0;
+            
+            foreach (string assetId in selectedAssetIds)
+            {
+                // Find the asset by ID
+                var asset = availableAssets.FirstOrDefault(a => a.id == assetId);
+                if (asset == null)
+                {
+                    Debug.LogWarning($"[OOJU] Asset with ID {assetId} not found");
+                    failedCount++;
+                    continue;
+                }
+                
+                string fileName = asset.filename ?? $"asset_{assetId}";
+                string localPath = System.IO.Path.Combine(downloadDir, fileName);
+                
+                downloadStatus = $"Downloading {downloadedCount + 1}/{totalAssets}: {fileName}...";
+                Repaint();
+                
+                bool downloadSuccess = false;
+                yield return NetworkUtility.DownloadAsset(
+                    assetId,
+                    authToken,
+                    localPath,
+                    (success) => { downloadSuccess = success; },
+                    (progress) => { /* Progress callback - could be used for progress bar */ }
+                );
+                
+                if (downloadSuccess)
+                {
+                    downloadedCount++;
+                    Debug.Log($"[OOJU] Successfully downloaded: {fileName}");
+                }
+                else
+                {
+                    failedCount++;
+                    Debug.LogError($"[OOJU] Failed to download: {fileName}");
+                }
+                
+                yield return new WaitForSeconds(0.1f); // Small delay between downloads
+            }
+            
+            // Refresh Unity's asset database
+            AssetDatabase.Refresh();
+            
+            downloadStatus = $"Download complete: {downloadedCount} succeeded, {failedCount} failed.";
+            isDownloading = false;
+            
+            // Clear selection after successful download
+            if (downloadedCount > 0)
+            {
+                selectedAssetIds.Clear();
+            }
+            
+            // Show completion dialog
+            string message = $"Download completed!\n\nSuccessful: {downloadedCount}\nFailed: {failedCount}\n\nAssets saved to: Assets/OOJU/Asset/My Assets/";
+            EditorUtility.DisplayDialog("Download Complete", message, "OK");
+            
+            Repaint();
         }
     }
 } 
