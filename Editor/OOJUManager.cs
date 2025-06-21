@@ -968,8 +968,7 @@ namespace OOJUPlugin
                 GUI.enabled = !string.IsNullOrEmpty(gestureReaction);
                 if (GUILayout.Button(new GUIContent("Create Hand Control", "Create gesture-based interaction for this object."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
                 {
-                    // TODO: Implement gesture creation functionality
-                    EditorUtility.DisplayDialog("Coming Soon", "Hand gesture functionality will be implemented soon!", "OK");
+                    CreateHandControl();
                 }
                 GUI.enabled = true;
                 
@@ -2939,6 +2938,145 @@ namespace OOJUPlugin
             EditorUtility.DisplayDialog("Download Complete", message, "OK");
             
             Repaint();
+        }
+
+        private void CreateHandControl()
+        {
+            var selectedObjects = Selection.gameObjects;
+            if (selectedObjects == null || selectedObjects.Length == 0)
+            {
+                EditorUtility.DisplayDialog("No Selection", 
+                    "Please select at least one object in the scene to add hand control to.", "OK");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(gestureReaction))
+            {
+                EditorUtility.DisplayDialog("No Reaction", 
+                    "Please describe what should happen when you perform the gesture.", "OK");
+                return;
+            }
+
+            // Ensure XR Gesture Manager exists in scene
+            EnsureXRGestureManager();
+
+            // Create gesture interactions for selected objects
+            int successCount = 0;
+            foreach (var obj in selectedObjects)
+            {
+                if (obj != null)
+                {
+                    if (SetupGestureInteraction(obj))
+                    {
+                        successCount++;
+                    }
+                }
+            }
+
+            if (successCount > 0)
+            {
+                EditorUtility.DisplayDialog("Hand Control Created", 
+                    $"Successfully added {GetGestureName(selectedGesture)} gesture control to {successCount} object(s).\n\n" +
+                    $"Gesture: {GetGestureName(selectedGesture)}\n" +
+                    $"Effect: {GetEffectName(selectedGesture)}\n" +
+                    $"Description: {gestureReaction}\n\n" +
+                    "The objects will now respond to hand gestures in XR!", "OK");
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("Setup Failed", 
+                    "Could not set up hand control for the selected objects. Check the Console for errors.", "OK");
+            }
+        }
+
+        private void EnsureXRGestureManager()
+        {
+            // Check if XRGestureInteractionManager already exists
+            var existingManager = FindFirstObjectByType<OOJUPlugin.XRGestureInteractionManager>();
+            if (existingManager != null)
+            {
+                Debug.Log("[OOJU] XRGestureInteractionManager already exists in scene");
+                return;
+            }
+
+            // Create XR Gesture Manager
+            GameObject managerGO = new GameObject("XRGestureInteractionManager");
+            managerGO.AddComponent<OOJUPlugin.XRGestureInteractionManager>();
+            
+            Debug.Log("[OOJU] Created XRGestureInteractionManager in scene");
+        }
+
+        private bool SetupGestureInteraction(GameObject target)
+        {
+            try
+            {
+                // Add XRGestureResponder component if not present
+                var responder = target.GetComponent<OOJUPlugin.XRGestureResponder>();
+                if (responder == null)
+                {
+                    responder = target.AddComponent<OOJUPlugin.XRGestureResponder>();
+                }
+
+                // Map selected gesture to interaction type
+                var gestureType = (OOJUPlugin.GestureType)((int)selectedGesture);
+                var effectType = GetInteractionTypeForGesture(selectedGesture);
+
+                // Add the gesture interaction
+                responder.AddGestureInteraction(gestureType, effectType);
+
+                Debug.Log($"[OOJU] Added {GetGestureName(selectedGesture)} -> {GetEffectName(selectedGesture)} interaction to {target.name}");
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[OOJU] Failed to setup gesture interaction for {target.name}: {ex.Message}");
+                return false;
+            }
+        }
+
+        private OOJUPlugin.InteractionType GetInteractionTypeForGesture(HandGesture gesture)
+        {
+            switch (gesture)
+            {
+                case HandGesture.Pinch:
+                    return OOJUPlugin.InteractionType.FollowHand;
+                case HandGesture.Tap:
+                    return OOJUPlugin.InteractionType.InfiniteRotation;
+                case HandGesture.PointToSelect:
+                    return OOJUPlugin.InteractionType.Highlight;
+                case HandGesture.OpenPalm:
+                    return OOJUPlugin.InteractionType.PushAway;
+                case HandGesture.Wave:
+                    return OOJUPlugin.InteractionType.Heartbeat;
+                default:
+                    return OOJUPlugin.InteractionType.Highlight;
+            }
+        }
+
+        private string GetGestureName(HandGesture gesture)
+        {
+            switch (gesture)
+            {
+                case HandGesture.PointToSelect: return "Point to Select";
+                case HandGesture.Pinch: return "Pinch";
+                case HandGesture.OpenPalm: return "Open Palm";
+                case HandGesture.Tap: return "Tap";
+                case HandGesture.Wave: return "Wave";
+                default: return gesture.ToString();
+            }
+        }
+
+        private string GetEffectName(HandGesture gesture)
+        {
+            switch (gesture)
+            {
+                case HandGesture.PointToSelect: return "Highlight";
+                case HandGesture.Pinch: return "Follow Hand";
+                case HandGesture.OpenPalm: return "Push Away";
+                case HandGesture.Tap: return "Infinite Rotation";
+                case HandGesture.Wave: return "Heartbeat";
+                default: return "Unknown";
+            }
         }
     }
 } 
