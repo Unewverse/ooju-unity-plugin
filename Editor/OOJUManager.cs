@@ -84,8 +84,7 @@ namespace OOJUPlugin
         private Dictionary<string, string> userObjectInput = new Dictionary<string, string>();
         private string lastGeneratedClassName = "";
         private Dictionary<string, string> lastGeneratedSuggestionPerObject = new Dictionary<string, string>();
-        private bool showInteractionGeneration = true;
-        private GUIStyle bigFoldoutStyle;
+
         private UIStyles interactionStyles;
 
         // Color definitions (ported from OOJUInteractionWindow)
@@ -452,18 +451,7 @@ namespace OOJUPlugin
             if (!interactionStyles.IsInitialized)
                 interactionStyles.Initialize();
 
-            if (bigFoldoutStyle == null)
-            {
-                bigFoldoutStyle = new GUIStyle(EditorStyles.foldout);
-                bigFoldoutStyle.fontSize = 16;
-                bigFoldoutStyle.fontStyle = FontStyle.Bold;
-                bigFoldoutStyle.normal.textColor = Color.white;
-                bigFoldoutStyle.onNormal.textColor = Color.white;
-                bigFoldoutStyle.active.textColor = Color.white;
-                bigFoldoutStyle.onActive.textColor = Color.white;
-                bigFoldoutStyle.focused.textColor = Color.white;
-                bigFoldoutStyle.onFocused.textColor = Color.white;
-            }
+
 
             float contentWidth = position.width - 40f;
             float buttonWidth = Mathf.Min(250f, contentWidth * 0.7f);
@@ -504,16 +492,30 @@ namespace OOJUPlugin
             EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true));
             GUILayout.Space(20);
 
-            // Interaction Generation foldout
+            // Make Things Interactive section
             EditorGUILayout.BeginVertical();
-            showInteractionGeneration = EditorGUILayout.Foldout(showInteractionGeneration, "Make Things Interactive", true, bigFoldoutStyle);
-            if (showInteractionGeneration)
+            try
             {
+                // Section title
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label(EditorGUIUtility.IconContent("d_UnityEditor.SceneHierarchyWindow"), GUILayout.Width(22), GUILayout.Height(22));
+                GUIStyle mainTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+                mainTitleStyle.fontSize = 18;
+                mainTitleStyle.normal.textColor = SectionTitleColor;
+                EditorGUILayout.LabelField("Make Things Interactive", mainTitleStyle);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(10);
+                
                 DrawSentenceToInteractionSection(buttonWidth);
                 GUILayout.Space(16);
                 DrawDescriptionSection(buttonWidth);
                 GUILayout.Space(16);
                 DrawExplorerSection(buttonWidth);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error in Make Things Interactive section: {e.Message}");
+                EditorGUILayout.HelpBox("Error displaying interactive features", MessageType.Error);
             }
             EditorGUILayout.EndVertical();
 
@@ -539,10 +541,10 @@ namespace OOJUPlugin
             sectionTitleStyle.normal.textColor = SectionTitleColor;
             GUIStyle descLabelStyle = new GUIStyle(EditorStyles.label);
             descLabelStyle.normal.textColor = DescriptionTextColor;
-            EditorGUILayout.LabelField("Smart Ideas", sectionTitleStyle);
+            EditorGUILayout.LabelField("Ideas for You", sectionTitleStyle);
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(2);
-            EditorGUILayout.LabelField("Get smart ideas for what your selected objects can do.", descLabelStyle);
+            EditorGUILayout.LabelField("Here are some ideas for what your selected objects could do.", descLabelStyle);
             GUILayout.Space(8);
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
@@ -552,7 +554,7 @@ namespace OOJUPlugin
             GUI.backgroundColor = ButtonBgColor;
             GUI.contentColor = ButtonTextColor;
             EditorGUI.BeginDisabledGroup(isGeneratingDescription);
-            if (GUILayout.Button(new GUIContent("Give Me Ideas", "Show me what these objects can do."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+            if (GUILayout.Button(new GUIContent("Give Me Ideas", "Get personalized ideas for your selected objects."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
             {
                 try 
                 { 
@@ -580,7 +582,7 @@ namespace OOJUPlugin
             if (interactionSuggestions != null && interactionSuggestions.Count > 0)
             {
                 GUILayout.Space(4);
-                EditorGUILayout.LabelField("Here's what these can do:", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("Ideas for your objects:", EditorStyles.boldLabel);
                 foreach (var kvp in interactionSuggestions)
                 {
                     string objName = kvp.Key;
@@ -635,7 +637,7 @@ namespace OOJUPlugin
                 GUI.backgroundColor = ButtonBgColor;
                 GUI.contentColor = ButtonTextColor;
                 EditorGUI.BeginDisabledGroup(isGeneratingDescription);
-                if (GUILayout.Button(new GUIContent("Get More Ideas", "Show me different things these objects can do."), GUILayout.Width(buttonWidth), GUILayout.Height(22)))
+                if (GUILayout.Button(new GUIContent("Get More Ideas", "Get different ideas for your objects."), GUILayout.Width(buttonWidth), GUILayout.Height(22)))
                 {
                     try 
                     { 
