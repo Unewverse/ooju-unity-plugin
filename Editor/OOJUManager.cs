@@ -1248,7 +1248,40 @@ namespace OOJUPlugin
 
         private void CheckAssets()
         {
-            // Asset checking logic will be implemented here
+            if (string.IsNullOrEmpty(authToken))
+            {
+                Debug.LogWarning("Cannot check assets: No auth token available");
+                return;
+            }
+
+            isCheckingAssets = true;
+            EditorCoroutineUtility.StartCoroutineOwnerless(CheckAssetsCoroutine());
+        }
+
+        private IEnumerator CheckAssetsCoroutine()
+        {
+            yield return NetworkUtility.GetAssets(
+                authToken,
+                (assets) =>
+                {
+                    availableAssets = assets;
+                    assetCount = assets.Count;
+                    assetsAvailable = assetCount > 0;
+                    FilterAssets();
+                    isCheckingAssets = false;
+                    downloadStatus = $"Found {assetCount} assets.";
+                    Repaint();
+                },
+                (error) =>
+                {
+                    Debug.LogError($"Error checking assets: {error}");
+                    downloadStatus = $"Error checking assets: {error}";
+                    isCheckingAssets = false;
+                    assetsAvailable = false;
+                    assetCount = 0;
+                    Repaint();
+                }
+            );
         }
 
         // All helper methods (DrawImportTab, DrawAssetsTab, DrawSettingsTab, DrawLoginUI, HandleDragAndDrop, etc.) from UserAssetManager should be copied here and adapted as needed.
