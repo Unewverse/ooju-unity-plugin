@@ -62,7 +62,7 @@ namespace OOJUPlugin
 
         // Add this as a class field
         private int assetSubTab = 0;
-        private readonly string[] assetTabLabels = { "Import", "My Assets", "Settings" };
+        private readonly string[] assetTabLabels = { "Import", "My Assets" };
 
         // Interaction-related fields (migrated from OOJUInteractionWindow)
         private Vector2 mainScrollPosition = Vector2.zero;
@@ -86,9 +86,8 @@ namespace OOJUPlugin
         private GUIStyle bigFoldoutStyle;
         private UIStyles interactionStyles;
         private AnimationUI animationUI;
-        private enum InteractionTab { Tools, Settings }
-        private InteractionTab currentInteractionTab = InteractionTab.Tools;
-        // 색상 정의 (OOJUInteractionWindow에서 이식)
+
+        // Color definitions (ported from OOJUInteractionWindow)
         private readonly Color32 SectionTitleColor = new Color32(0xFC, 0xFC, 0xFC, 0xFF);
         private readonly Color32 DescriptionTextColor = new Color32(0xFC, 0xFC, 0xFC, 0xFF);
         private readonly Color32 ButtonBgColor = new Color32(0x67, 0x67, 0x67, 0xFF);
@@ -203,9 +202,6 @@ namespace OOJUPlugin
                 case 1:
                     DrawAssetsTab();
                     break;
-                case 2:
-                    DrawSettingsTab();
-                    break;
             }
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -251,23 +247,8 @@ namespace OOJUPlugin
             float contentWidth = position.width - 40f;
             float buttonWidth = Mathf.Min(250f, contentWidth * 0.7f);
 
-            // Internal tab UI (Tools/Settings)
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Toggle(currentInteractionTab == InteractionTab.Tools, "Tools", EditorStyles.toolbarButton))
-                currentInteractionTab = InteractionTab.Tools;
-            if (GUILayout.Toggle(currentInteractionTab == InteractionTab.Settings, "Settings", EditorStyles.toolbarButton))
-                currentInteractionTab = InteractionTab.Settings;
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.Space();
-            switch (currentInteractionTab)
-            {
-                case InteractionTab.Tools:
-                    DrawInteractionToolsTab(contentWidth, buttonWidth);
-                    break;
-                case InteractionTab.Settings:
-                    DrawInteractionSettingsTab();
-                    break;
-            }
+            // Draw the Tools content directly (no internal tabs needed)
+            DrawInteractionToolsTab(contentWidth, buttonWidth);
         }
 
         // Draws the main interaction tools tab UI
@@ -1217,39 +1198,6 @@ namespace OOJUPlugin
             }
         }
 
-        private void DrawInteractionSettingsTab()
-        {
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("AI Model Settings", EditorStyles.boldLabel);
-            EditorGUILayout.Space();
-            string[] llmTypes = new[] { "OpenAI", "Claude", "Gemini" };
-            int selectedIdx = Array.IndexOf(llmTypes, OISettings.Instance.SelectedLLMType);
-            if (selectedIdx < 0) selectedIdx = 0;
-            selectedIdx = EditorGUILayout.Popup("Models", selectedIdx, llmTypes);
-            OISettings.Instance.SelectedLLMType = llmTypes[selectedIdx];
-            EditorGUILayout.Space();
-            switch (OISettings.Instance.SelectedLLMType)
-            {
-                case "OpenAI":
-                    OISettings.Instance.ApiKey = EditorGUILayout.PasswordField("OpenAI API Key", OISettings.Instance.ApiKey);
-                    break;
-                case "Claude":
-                    OISettings.Instance.ClaudeApiKey = EditorGUILayout.PasswordField("Claude API Key", OISettings.Instance.ClaudeApiKey);
-                    break;
-                case "Gemini":
-                    OISettings.Instance.GeminiApiKey = EditorGUILayout.PasswordField("Gemini API Key", OISettings.Instance.GeminiApiKey);
-                    break;
-            }
-            EditorGUILayout.Space();
-            if (GUILayout.Button("Save Settings"))
-            {
-                OISettings.Instance.SaveSettings();
-                EditorUtility.SetDirty(OISettings.Instance);
-                AssetDatabase.SaveAssets();
-                EditorUtility.DisplayDialog("Saved", "Settings have been saved.", "OK");
-            }
-        }
-
         private void OnEditorUpdate()
         {
             if (autoSyncEnabled && !string.IsNullOrEmpty(authToken) && !isDownloading)
@@ -1301,7 +1249,7 @@ namespace OOJUPlugin
             );
         }
 
-        // All helper methods (DrawImportTab, DrawAssetsTab, DrawSettingsTab, DrawLoginUI, HandleDragAndDrop, etc.) from UserAssetManager should be copied here and adapted as needed.
+        // All helper methods (DrawImportTab, DrawAssetsTab, DrawLoginUI, HandleDragAndDrop, etc.) from UserAssetManager should be copied here and adapted as needed.
 
         // --- Begin migrated methods from UserAssetManager ---
         private void HandleDragAndDrop()
@@ -1696,28 +1644,6 @@ namespace OOJUPlugin
                 }
             );
         }
-        private void ResetAllSettings()
-        {
-            authToken = "";
-            EditorPrefs.DeleteKey("UserAssetManager_Token");
-            autoSyncEnabled = false;
-            EditorPrefs.SetBool("UserAssetManager_AutoSync", false);
-            uploadStatus = "Settings have been reset.";
-            downloadStatus = "";
-            userEmail = "";
-            userPassword = "";
-            availableAssets.Clear();
-            filteredAssets.Clear();
-            selectedAssetIds.Clear();
-            assetPreviews.Clear();
-            pendingUploadFiles.Clear();
-            assetsAvailable = false;
-            assetCount = 0;
-            scrollPosition = Vector2.zero;
-            assetGridScrollPosition = Vector2.zero;
-            currentTab = 0;
-            Repaint();
-        }
         private void FilterAssets()
         {
             try
@@ -2020,196 +1946,6 @@ namespace OOJUPlugin
                 return ext == ".glb" || ext == ".gltf" || ext == ".fbx" || ext == ".obj";
             }
             return false;
-        }
-        // --- End migrated methods ---
-
-        // DrawSettingsTab 함수 추가 (클래스 내부)
-        private void DrawSettingsTab()
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("Asset Manager Settings", styles.sectionHeaderStyle);
-            GUILayout.Space(10);
-
-            // Auto-sync settings
-            EditorGUILayout.BeginHorizontal();
-            EditorGUI.BeginChangeCheck();
-            autoSyncEnabled = EditorGUILayout.ToggleLeft("Enable Auto-sync (every 15 minutes)", autoSyncEnabled);
-            if (EditorGUI.EndChangeCheck())
-            {
-                EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
-            }
-            EditorGUILayout.EndHorizontal();
-            
-            if (autoSyncEnabled)
-            {
-                EditorGUILayout.HelpBox("Assets will be automatically synchronized with the server every 15 minutes.", MessageType.Info);
-            }
-
-            GUILayout.Space(20);
-
-            // ZIP File Upload
-            EditorGUILayout.LabelField("ZIP File Upload", EditorStyles.boldLabel);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Upload ZIP File", GUILayout.Width(150), GUILayout.Height(30)))
-            {
-                string zipPath = EditorUtility.OpenFilePanel("Select ZIP File", "", "zip");
-                if (!string.IsNullOrEmpty(zipPath))
-                {
-                    if (string.IsNullOrEmpty(authToken))
-                    {
-                        EditorUtility.DisplayDialog("Error", "Please log in first.", "OK");
-                    }
-                    else
-                    {
-                        uploadStatus = "Uploading ZIP file...";
-                        EditorCoroutineUtility.StartCoroutineOwnerless(UploadZipFileCoroutine(zipPath));
-                    }
-                }
-            }
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-
-            if (!string.IsNullOrEmpty(uploadStatus) && uploadStatus.Contains("ZIP"))
-            {
-                EditorGUILayout.HelpBox(uploadStatus, MessageType.Info);
-            }
-
-            GUILayout.Space(20);
-
-            // GLTFast installation status
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("GLTFast Status:", EditorStyles.boldLabel);
-            if (isGltfFastInstalled)
-            {
-                EditorGUILayout.LabelField("Installed", EditorStyles.boldLabel);
-                GUI.color = Color.green;
-                GUILayout.Label(EditorGUIUtility.IconContent("d_Valid@2x"));
-                GUI.color = Color.white;
-            }
-            else
-            {
-                EditorGUILayout.LabelField("Not Installed", EditorStyles.boldLabel);
-                if (GUILayout.Button("Install GLTFast"))
-                {
-                    InstallGltfFast();
-                }
-            }
-            EditorGUILayout.EndHorizontal();
-
-            if (!isGltfFastInstalled)
-            {
-                EditorGUILayout.HelpBox("GLTFast is required for importing glTF/GLB files. Click 'Install GLTFast' to add it to your project.", MessageType.Warning);
-            }
-
-            GUILayout.Space(20);
-
-            // Reset settings button
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            GUI.backgroundColor = new Color(0.9f, 0.6f, 0.6f);
-            if (GUILayout.Button("Reset All Settings", GUILayout.Width(150), GUILayout.Height(30)))
-            {
-                if (EditorUtility.DisplayDialog("Reset Settings",
-                    "Are you sure you want to reset all settings? This will clear your login information and preferences.",
-                    "Reset", "Cancel"))
-                {
-                    ResetAllSettings();
-                }
-            }
-            GUI.backgroundColor = Color.white;
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-
-            // Cache information
-            GUILayout.Space(20);
-            EditorGUILayout.LabelField("Cache Information", EditorStyles.boldLabel);
-            string cachePath = Path.Combine(Application.dataPath, "OOJU", "Assets");
-            if (Directory.Exists(cachePath))
-            {
-                long size = GetDirectorySize(new DirectoryInfo(cachePath));
-                EditorGUILayout.LabelField($"Cache Size: {FormatSize(size)}");
-
-                GUILayout.Space(5);
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Clear Cache", GUILayout.Width(120)))
-                {
-                    if (EditorUtility.DisplayDialog("Clear Cache",
-                        "Are you sure you want to clear the asset cache? This will delete all downloaded assets.",
-                        "Clear", "Cancel"))
-                    {
-                        ClearCache();
-                    }
-                }
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.EndHorizontal();
-            }
-            else
-            {
-                EditorGUILayout.LabelField("Cache is empty");
-            }
-
-            EditorGUILayout.EndVertical();
-        }
-
-        private void ClearCache()
-        {
-            try
-            {
-                string cachePath = Path.Combine(Application.dataPath, "OOJU", "Assets");
-                if (Directory.Exists(cachePath))
-                {
-                    Directory.Delete(cachePath, true);
-                    AssetDatabase.Refresh();
-                    Debug.Log("Asset cache cleared successfully.");
-                    EditorUtility.DisplayDialog("Cache Cleared", "Asset cache has been cleared successfully.", "OK");
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Error clearing cache: {e.Message}");
-                EditorUtility.DisplayDialog("Error", $"Failed to clear cache: {e.Message}", "OK");
-            }
-        }
-
-        private long GetDirectorySize(DirectoryInfo directoryInfo)
-        {
-            long size = 0;
-            try
-            {
-                // Add file sizes
-                FileInfo[] files = directoryInfo.GetFiles();
-                foreach (FileInfo file in files)
-                {
-                    size += file.Length;
-                }
-
-                // Add subdirectory sizes
-                DirectoryInfo[] dirs = directoryInfo.GetDirectories();
-                foreach (DirectoryInfo dir in dirs)
-                {
-                    size += GetDirectorySize(dir);
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Error calculating directory size: {e.Message}");
-            }
-            return size;
-        }
-
-        private string FormatSize(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            int order = 0;
-            double size = bytes;
-            while (size >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                size = size / 1024;
-            }
-            return $"{size:0.##} {sizes[order]}";
         }
 
         private IEnumerator UploadZipFileCoroutine(string zipPath)
