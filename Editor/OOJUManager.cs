@@ -23,6 +23,11 @@ namespace OOJUPlugin
         private Tab currentTab = Tab.Asset;
         private string[] tabNames = { "Asset", "Interaction" };
 
+        // Interaction sub-tab system
+        private enum InteractionSubTab { Tools, Settings }
+        private InteractionSubTab currentInteractionSubTab = InteractionSubTab.Tools;
+        private string[] interactionSubTabNames = { "Tools", "Settings" };
+
         // Asset Manager variables
         private string authToken = "";
         private string uploadStatus = "";
@@ -65,6 +70,7 @@ namespace OOJUPlugin
         private Vector2 mainScrollPosition = Vector2.zero;
         private Vector2 analyzerScrollPosition = Vector2.zero;
         private Vector2 descriptionScrollPosition = Vector2.zero;
+        private Vector2 settingsScrollPosition = Vector2.zero;
         private string sceneDescription = "";
         private bool isGeneratingDescription = false;
         private Dictionary<string, string[]> interactionSuggestions = null;
@@ -188,8 +194,21 @@ namespace OOJUPlugin
                 styles.Initialize();
             }
             HandleDragAndDrop();
-            UIRenderer.DrawHeader("OOJU Asset Manager", styles);
-            GUILayout.Space(10);
+            
+            // Draw the header bar (logo, title, web app button) - matching Interaction tab
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            Texture2D logo = Resources.Load<Texture2D>("ooju_logo");
+            if (logo != null)
+                GUILayout.Label(logo, GUILayout.Width(40), GUILayout.Height(40));
+            GUILayout.Label("OOJU", new GUIStyle(EditorStyles.boldLabel) { fontSize = 20, alignment = TextAnchor.MiddleCenter }, GUILayout.Height(40));
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Web App", GUILayout.Width(80), GUILayout.Height(24)))
+            {
+                Application.OpenURL("https://demo.ooju.world/");
+            }
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(8);
             if (string.IsNullOrEmpty(authToken))
             {
                 DrawLoginUI();
@@ -449,8 +468,33 @@ namespace OOJUPlugin
             float contentWidth = position.width - 40f;
             float buttonWidth = Mathf.Min(250f, contentWidth * 0.7f);
 
-            // Draw the Tools content directly (no internal tabs needed)
+            // Draw the sub-tab bar for interaction
+            currentInteractionSubTab = (InteractionSubTab)GUILayout.Toolbar((int)currentInteractionSubTab, interactionSubTabNames, styles.tabStyle);
+            GUILayout.Space(5);
+
+            // Draw the selected sub-tab content
+            switch (currentInteractionSubTab)
+            {
+                case InteractionSubTab.Tools:
                     DrawInteractionToolsTab(contentWidth, buttonWidth);
+                    break;
+                case InteractionSubTab.Settings:
+                    DrawInteractionSettingsTab();
+                    break;
+            }
+        }
+
+        // Draws the interaction settings tab UI
+        private void DrawInteractionSettingsTab()
+        {
+            settingsScrollPosition = EditorGUILayout.BeginScrollView(settingsScrollPosition, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true));
+            GUILayout.Space(20);
+
+            DrawSettingsSection();
+
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndScrollView();
         }
 
         // Draws the main interaction tools tab UI
@@ -729,6 +773,118 @@ namespace OOJUPlugin
                 Debug.LogError($"Error in DrawAnimationSection: {ex.Message}");
                 EditorGUILayout.HelpBox($"Error in DrawAnimationSection: {ex.Message}", MessageType.Error);
             }
+        }
+
+        // Draws the Settings section
+        private void DrawSettingsSection()
+        {
+            var settings = OISettings.Instance;
+            
+            // Section header with better spacing for dedicated tab
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label(EditorGUIUtility.IconContent("d_Settings"), GUILayout.Width(24), GUILayout.Height(24));
+            GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+            sectionTitleStyle.fontSize = 16;
+            sectionTitleStyle.normal.textColor = SectionTitleColor;
+            EditorGUILayout.LabelField("LLM API Settings", sectionTitleStyle);
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(5);
+            
+            GUIStyle descLabelStyle = new GUIStyle(EditorStyles.label);
+            descLabelStyle.normal.textColor = DescriptionTextColor;
+            EditorGUILayout.LabelField("Configure your LLM API settings for interaction generation.", descLabelStyle);
+            EditorGUILayout.EndVertical();
+            GUILayout.Space(15);
+            
+            // LLM Provider Selection
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("LLM Provider:", GUILayout.Width(100));
+            string[] llmOptions = { "OpenAI", "Claude", "Gemini" };
+            int selectedIndex = System.Array.IndexOf(llmOptions, settings.SelectedLLMType);
+            if (selectedIndex == -1) selectedIndex = 0;
+            
+            int newIndex = EditorGUILayout.Popup(selectedIndex, llmOptions);
+            if (newIndex != selectedIndex)
+            {
+                settings.SelectedLLMType = llmOptions[newIndex];
+                settings.SaveSettings();
+            }
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(10);
+            
+            // API Key input based on selected provider
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            
+            switch (settings.SelectedLLMType)
+            {
+                case "OpenAI":
+                    EditorGUILayout.LabelField("OpenAI API Key:", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField("Get your API key from: https://platform.openai.com/api-keys", EditorStyles.miniLabel);
+                    string newOpenAIKey = EditorGUILayout.PasswordField("API Key:", settings.ApiKey);
+                    if (newOpenAIKey != settings.ApiKey)
+                    {
+                        settings.ApiKey = newOpenAIKey;
+                        settings.SaveSettings();
+                    }
+                    break;
+                    
+                case "Claude":
+                    EditorGUILayout.LabelField("Claude API Key:", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField("Get your API key from: https://console.anthropic.com/", EditorStyles.miniLabel);
+                    string newClaudeKey = EditorGUILayout.PasswordField("API Key:", settings.ClaudeApiKey);
+                    if (newClaudeKey != settings.ClaudeApiKey)
+                    {
+                        settings.ClaudeApiKey = newClaudeKey;
+                        settings.SaveSettings();
+                    }
+                    break;
+                    
+                case "Gemini":
+                    EditorGUILayout.LabelField("Gemini API Key:", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField("Get your API key from: https://aistudio.google.com/app/apikey", EditorStyles.miniLabel);
+                    string newGeminiKey = EditorGUILayout.PasswordField("API Key:", settings.GeminiApiKey);
+                    if (newGeminiKey != settings.GeminiApiKey)
+                    {
+                        settings.GeminiApiKey = newGeminiKey;
+                        settings.SaveSettings();
+                    }
+                    break;
+            }
+            
+            EditorGUILayout.EndVertical();
+            GUILayout.Space(15);
+            
+            // Status display in a separate box
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("Configuration Status", EditorStyles.boldLabel);
+            GUILayout.Space(5);
+            
+            bool hasValidKey = false;
+            switch (settings.SelectedLLMType)
+            {
+                case "OpenAI":
+                    hasValidKey = !string.IsNullOrEmpty(settings.ApiKey);
+                    break;
+                case "Claude":
+                    hasValidKey = !string.IsNullOrEmpty(settings.ClaudeApiKey);
+                    break;
+                case "Gemini":
+                    hasValidKey = !string.IsNullOrEmpty(settings.GeminiApiKey);
+                    break;
+            }
+            
+            if (hasValidKey)
+            {
+                EditorGUILayout.HelpBox($"{settings.SelectedLLMType} API key configured successfully.", MessageType.Info);
+            }
+            else
+            {
+                EditorGUILayout.HelpBox($"Please enter your {settings.SelectedLLMType} API key to use interaction generation features.", MessageType.Warning);
+            }
+            
+            EditorGUILayout.EndVertical();
+            GUILayout.Space(20);
         }
 
         // Draws the Add Player section (UI + logic)
