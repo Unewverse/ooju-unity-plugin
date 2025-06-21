@@ -1,3 +1,4 @@
+
 using UnityEditor;
 using UnityEngine;
 using System.Collections;
@@ -136,6 +137,9 @@ namespace OOJUPlugin
             }
 
             EditorApplication.update += OnEditorUpdate;
+            
+            // Enable mouse move events for better GUI stability
+            wantsMouseMove = true;
         }
 
         private void OnDisable()
@@ -686,15 +690,23 @@ namespace OOJUPlugin
             GUILayout.Space(2);
             EditorGUILayout.LabelField("Describe the interaction you want to create as a single sentence", EditorStyles.miniLabel);
             GUILayout.Space(8);
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.ExpandWidth(true));
-            var wordWrapStyle = new GUIStyle(EditorStyles.textField) { wordWrap = true };
-            wordWrapStyle.normal.textColor = InputTextColor;
+            
+            // Show placeholder text when empty
             if (string.IsNullOrEmpty(userInteractionInput))
             {
                 EditorGUILayout.LabelField("e.g. Make the object spin when clicked.", EditorStyles.wordWrappedMiniLabel);
             }
-            userInteractionInput = EditorGUILayout.TextArea(userInteractionInput, wordWrapStyle, GUILayout.Height(60), GUILayout.ExpandWidth(true), GUILayout.MaxWidth(800));
-            EditorGUILayout.EndVertical();
+            
+            // Use DelayedTextField to avoid focus loss - press Enter to confirm input
+            userInteractionInput = EditorGUILayout.DelayedTextField(userInteractionInput, GUILayout.Height(20), GUILayout.ExpandWidth(true));
+            
+            // Show current text in a read-only area if it's longer
+            if (!string.IsNullOrEmpty(userInteractionInput) && userInteractionInput.Length > 50)
+            {
+                GUILayout.Space(5);
+                EditorGUILayout.LabelField("Full Text:", EditorStyles.boldLabel);
+                EditorGUILayout.SelectableLabel(userInteractionInput, EditorStyles.textArea, GUILayout.Height(40));
+            }
             GUILayout.Space(10);
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
