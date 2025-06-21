@@ -29,8 +29,6 @@ namespace OOJUPlugin
         private string downloadStatus = "";
         private string userEmail = "";
         private string userPassword = "";
-        private bool autoSyncEnabled = false;
-        private double lastSyncCheckTime = 0;
         private bool isCheckingAssets = false;
         private bool assetsAvailable = false;
         private int assetCount = 0;
@@ -131,15 +129,11 @@ namespace OOJUPlugin
                 userEmail = "";
             }
 
-            autoSyncEnabled = EditorPrefs.GetBool("OOJUManager_AutoSync", false);
-            AssetDownloader.LoadSyncTime();
-
             EditorApplication.update += OnEditorUpdate;
         }
 
         private void OnDisable()
         {
-            EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
             EditorApplication.update -= OnEditorUpdate;
             
             // Clear preview cache when window is closed
@@ -234,24 +228,24 @@ namespace OOJUPlugin
                 // Section icon and header (matching Interaction tab style)
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.Label(EditorGUIUtility.IconContent("d_FolderOpened Icon"), GUILayout.Width(22), GUILayout.Height(22));
-                GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
-                sectionTitleStyle.fontSize = 14;
-                sectionTitleStyle.normal.textColor = SectionTitleColor;
-                EditorGUILayout.LabelField("Import OOJU Scene", sectionTitleStyle);
+                GUIStyle importSectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+                importSectionTitleStyle.fontSize = 14;
+                importSectionTitleStyle.normal.textColor = SectionTitleColor;
+                EditorGUILayout.LabelField("Import OOJU Scene", importSectionTitleStyle);
                 EditorGUILayout.EndHorizontal();
                 GUILayout.Space(2);
                 
                 // Description with styling matching Interaction tab
-                GUIStyle descLabelStyle = new GUIStyle(EditorStyles.label);
-                descLabelStyle.normal.textColor = DescriptionTextColor;
-                EditorGUILayout.LabelField("Import scenes created in the OOJU web application.", descLabelStyle);
+                GUIStyle importDescLabelStyle = new GUIStyle(EditorStyles.label);
+                importDescLabelStyle.normal.textColor = DescriptionTextColor;
+                EditorGUILayout.LabelField("Import scenes created in the OOJU web application.", importDescLabelStyle);
                 GUILayout.Space(8);
                 
                 // Button with consistent styling
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
-                Color prevBg = GUI.backgroundColor;
-                Color prevContent = GUI.contentColor;
+                Color importPrevBg = GUI.backgroundColor;
+                Color importPrevContent = GUI.contentColor;
                 GUI.backgroundColor = ButtonBgColor;
                 GUI.contentColor = ButtonTextColor;
                 if (GUILayout.Button(new GUIContent("Import ZIP Scene", "Select and import a scene ZIP file exported from OOJU web app."), GUILayout.Width(150), GUILayout.Height(30)))
@@ -263,8 +257,8 @@ namespace OOJUPlugin
                         EditorCoroutineUtility.StartCoroutineOwnerless(UploadZipFileCoroutine(zipPath));
                     }
                 }
-                GUI.backgroundColor = prevBg;
-                GUI.contentColor = prevContent;
+                GUI.backgroundColor = importPrevBg;
+                GUI.contentColor = importPrevContent;
                 GUILayout.FlexibleSpace();
                 EditorGUILayout.EndHorizontal();
                 
@@ -276,38 +270,57 @@ namespace OOJUPlugin
                         : MessageType.Info;
                     EditorGUILayout.HelpBox(uploadStatus, messageType);
                 }
-                EditorGUILayout.EndVertical();
+            EditorGUILayout.EndVertical();
                 
                 GUILayout.Space(15);
                 
-                // My Assets section below
+                // My Assets section below with improved styling
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                // Header with search
+                
+                // Section icon and header (matching Interaction tab style)
                 EditorGUILayout.BeginHorizontal();
-                GUILayout.Label("My Assets", styles.sectionHeaderStyle, GUILayout.ExpandWidth(false));
+                GUILayout.Label(EditorGUIUtility.IconContent("d_CloudConnect"), GUILayout.Width(22), GUILayout.Height(22));
+                GUIStyle assetsSectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+                assetsSectionTitleStyle.fontSize = 14;
+                assetsSectionTitleStyle.normal.textColor = SectionTitleColor;
+                EditorGUILayout.LabelField("My Assets", assetsSectionTitleStyle);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(2);
+                
+                // Description with styling matching Interaction tab
+                GUIStyle assetsDescLabelStyle = new GUIStyle(EditorStyles.label);
+                assetsDescLabelStyle.normal.textColor = DescriptionTextColor;
+                EditorGUILayout.LabelField("Assets managed through your OOJU account.", assetsDescLabelStyle);
+                GUILayout.Space(8);
+                
+                // Search field (right aligned)
+                EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 if (assetSearchField == null)
                     assetSearchField = new SearchField();
                 string newSearch = assetSearchField.OnGUI(
-                    GUILayoutUtility.GetRect(100, 200, 18, 18, GUILayout.ExpandWidth(true), GUILayout.MaxWidth(300)),
+                    GUILayoutUtility.GetRect(100, 200, 18, 18, GUILayout.ExpandWidth(false), GUILayout.MaxWidth(250)),
                     assetSearchQuery);
                 if (newSearch != assetSearchQuery)
                 {
                     assetSearchQuery = newSearch;
                     FilterAssets();
                 }
-                if (GUILayout.Button(new GUIContent(styles.refreshIcon), styles.iconButtonStyle, GUILayout.Width(24), GUILayout.Height(24)))
-                {
-                    CheckAssets();
-                }
                 EditorGUILayout.EndHorizontal();
-                GUILayout.Space(10);
+                GUILayout.Space(8);
                 
-                // Stats and controls
+                // Stats and refresh button row
                 EditorGUILayout.BeginHorizontal();
                 if (assetsAvailable && filteredAssets != null)
                 {
-                    GUILayout.Label($"{filteredAssets.Count} of {assetCount} assets", EditorStyles.boldLabel);
+                    if (string.IsNullOrWhiteSpace(assetSearchQuery))
+                    {
+                        GUILayout.Label($"{assetCount} assets", EditorStyles.boldLabel);
+                    }
+                    else
+                    {
+                        GUILayout.Label($"{filteredAssets.Count} assets", EditorStyles.boldLabel);
+                    }
                 }
                 else if (isCheckingAssets)
                 {
@@ -317,13 +330,20 @@ namespace OOJUPlugin
                 {
                     GUILayout.Label("No assets available", EditorStyles.boldLabel);
                 }
-                GUILayout.FlexibleSpace();
-                EditorGUI.BeginChangeCheck();
-                autoSyncEnabled = EditorGUILayout.ToggleLeft($"Auto-sync every 15m", autoSyncEnabled, GUILayout.Width(150));
-                if (EditorGUI.EndChangeCheck())
+                
+                GUILayout.Space(10);
+                
+                // Refresh button with consistent styling
+                Color assetsPrevBg = GUI.backgroundColor;
+                Color assetsPrevContent = GUI.contentColor;
+                GUI.backgroundColor = ButtonBgColor;
+                GUI.contentColor = ButtonTextColor;
+                if (GUILayout.Button(new GUIContent("Refresh", "Refresh asset list from server"), GUILayout.Width(80), GUILayout.Height(20)))
                 {
-                    EditorPrefs.SetBool("OOJUManager_AutoSync", autoSyncEnabled);
+                    CheckAssets();
                 }
+                GUI.backgroundColor = assetsPrevBg;
+                GUI.contentColor = assetsPrevContent;
                 EditorGUILayout.EndHorizontal();
                 
                 // Clean up selection list - remove already downloaded assets
@@ -351,12 +371,16 @@ namespace OOJUPlugin
                     EditorGUILayout.BeginHorizontal();
                     GUILayout.FlexibleSpace();
                     GUI.enabled = !isDownloading;
-                    GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f);
-                    if (GUILayout.Button($"Download {selectedAssetIds.Count} Selected Asset(s)", GUILayout.Width(250), GUILayout.Height(30)))
+                    Color downloadPrevBg = GUI.backgroundColor;
+                    Color downloadPrevContent = GUI.contentColor;
+                    GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f); // Keep green for download action
+                    GUI.contentColor = Color.white;
+                    if (GUILayout.Button(new GUIContent($"Download {selectedAssetIds.Count} Selected Asset(s)", "Download the selected assets to your project"), GUILayout.Width(250), GUILayout.Height(30)))
                     {
                         DownloadSelectedAssets();
                     }
-                    GUI.backgroundColor = Color.white;
+                    GUI.backgroundColor = downloadPrevBg;
+                    GUI.contentColor = downloadPrevContent;
                     GUI.enabled = true;
                     GUILayout.FlexibleSpace();
                     EditorGUILayout.EndHorizontal();
@@ -426,7 +450,7 @@ namespace OOJUPlugin
             float buttonWidth = Mathf.Min(250f, contentWidth * 0.7f);
 
             // Draw the Tools content directly (no internal tabs needed)
-            DrawInteractionToolsTab(contentWidth, buttonWidth);
+                    DrawInteractionToolsTab(contentWidth, buttonWidth);
         }
 
         // Draws the main interaction tools tab UI
@@ -1378,15 +1402,7 @@ namespace OOJUPlugin
 
         private void OnEditorUpdate()
         {
-            if (autoSyncEnabled && !string.IsNullOrEmpty(authToken) && !isDownloading)
-            {
-                double currentTime = EditorApplication.timeSinceStartup;
-                if (currentTime - lastSyncCheckTime > 15 * 60) // 15 minutes
-                {
-                    lastSyncCheckTime = currentTime;
-                    CheckAssets();
-                }
-            }
+            // OnEditorUpdate method kept for potential future use
         }
 
         private void CheckAssets()
@@ -1960,8 +1976,8 @@ namespace OOJUPlugin
             
             if (isDownloaded)
             {
-                // Draw green box over checkbox for downloaded assets
-                EditorGUI.DrawRect(checkboxRect, Color.green);
+                // Draw dark green box over checkbox for downloaded assets (matching download button color)
+                EditorGUI.DrawRect(checkboxRect, new Color(0.4f, 0.8f, 0.4f));
                 // Optionally draw a checkmark or "✓" symbol
                 GUI.Label(checkboxRect, "✓", new GUIStyle(EditorStyles.boldLabel) 
                 { 
@@ -1973,15 +1989,15 @@ namespace OOJUPlugin
             else
             {
                 // Only show checkbox for non-downloaded assets
-                bool isSelected = asset.id != null && selectedAssetIds.Contains(asset.id);
-                bool newSelection = GUI.Toggle(checkboxRect, isSelected, "");
-                if (newSelection != isSelected && asset.id != null)
-                {
-                    if (newSelection)
-                        selectedAssetIds.Add(asset.id);
-                    else
-                        selectedAssetIds.Remove(asset.id);
-                }
+            bool isSelected = asset.id != null && selectedAssetIds.Contains(asset.id);
+            bool newSelection = GUI.Toggle(checkboxRect, isSelected, "");
+            if (newSelection != isSelected && asset.id != null)
+            {
+                if (newSelection)
+                    selectedAssetIds.Add(asset.id);
+                else
+                    selectedAssetIds.Remove(asset.id);
+            }
             }
             int previewSize = Mathf.Min(itemWidth - 20, itemHeight - 50);
             Rect previewRect = new Rect(
@@ -2073,12 +2089,12 @@ namespace OOJUPlugin
                         if (displayTexture != null && displayTexture.width > 0 && displayTexture.height > 0)
                         {
                             float iconSize = previewSize * 0.8f; // Slightly larger for logo
-                            Rect iconRect = new Rect(
-                                previewRect.x + (previewRect.width - iconSize) / 2,
-                                previewRect.y + (previewRect.height - iconSize) / 2,
-                                iconSize,
-                                iconSize
-                            );
+                        Rect iconRect = new Rect(
+                            previewRect.x + (previewRect.width - iconSize) / 2,
+                            previewRect.y + (previewRect.height - iconSize) / 2,
+                            iconSize,
+                            iconSize
+                        );
                             GUI.DrawTexture(iconRect, displayTexture, ScaleMode.ScaleToFit);
                         }
                         else
