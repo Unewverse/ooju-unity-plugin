@@ -1322,6 +1322,43 @@ namespace OOJUPlugin
             return null;
         }
 
+        // Test Claude API key function
+        private async void TestClaudeAPIKey()
+        {
+            var settings = OISettings.Instance;
+            if (string.IsNullOrEmpty(settings.ClaudeApiKey))
+            {
+                EditorUtility.DisplayDialog("Test Error", "Claude API key is not set.", "OK");
+                return;
+            }
+
+            try
+            {
+                EditorUtility.DisplayProgressBar("Testing Claude API", "Testing API key...", 0.5f);
+                string result = await OIDescriptor.TestClaudeAPIKey(settings.ClaudeApiKey);
+                EditorUtility.ClearProgressBar();
+                
+                if (result.Contains("Error:") || result.Contains("error"))
+                {
+                    EditorUtility.DisplayDialog("Claude API Test Failed", 
+                        $"API key test failed:\n\n{result}\n\nPlease check:\n" +
+                        "1. API key is correct\n" + 
+                        "2. You have sufficient credits\n" +
+                        "3. Your account is active", "OK");
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog("Claude API Test Success", 
+                        $"API key is working correctly!\n\nResponse: {result}", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.ClearProgressBar();
+                EditorUtility.DisplayDialog("Test Error", $"Test failed with exception: {ex.Message}", "OK");
+            }
+        }
+
         // Helper: Check LLM API key and show error if not set
         private bool CheckLLMApiKeyAndShowError()
         {
