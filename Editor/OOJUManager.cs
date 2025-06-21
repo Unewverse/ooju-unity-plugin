@@ -85,6 +85,18 @@ namespace OOJUPlugin
         private string lastGeneratedClassName = "";
         private Dictionary<string, string> lastGeneratedSuggestionPerObject = new Dictionary<string, string>();
 
+        // Hand Gesture variables
+        private enum HandGesture
+        {
+            PointToSelect = 0,
+            Pinch = 1,
+            OpenPalm = 2,
+            Tap = 3,
+            Wave = 4
+        }
+        private HandGesture selectedGesture = HandGesture.PointToSelect;
+        private string gestureReaction = "";
+
         private UIStyles interactionStyles;
 
         // Color definitions (ported from OOJUInteractionWindow)
@@ -510,6 +522,8 @@ namespace OOJUPlugin
                 GUILayout.Space(16);
                 DrawDescriptionSection(buttonWidth);
                 GUILayout.Space(16);
+                DrawHandGestureSection(buttonWidth);
+                GUILayout.Space(16);
                 DrawExplorerSection(buttonWidth);
             }
             catch (System.Exception e)
@@ -873,6 +887,102 @@ namespace OOJUPlugin
             
             EditorGUILayout.EndVertical();
             GUILayout.Space(20);
+        }
+
+        // Draws the Hand Gesture section
+        private void DrawHandGestureSection(float buttonWidth)
+        {
+            try
+            {
+                // Section icon and header
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label(EditorGUIUtility.IconContent("d_Toolbar Plus"), GUILayout.Width(22), GUILayout.Height(22));
+                GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+                sectionTitleStyle.fontSize = 14;
+                sectionTitleStyle.normal.textColor = SectionTitleColor;
+                EditorGUILayout.LabelField("Control with Hands", sectionTitleStyle);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(2);
+                EditorGUILayout.LabelField("Make objects respond to your hand gestures in XR.", EditorStyles.miniLabel);
+                GUILayout.Space(8);
+                
+                // Selected object info
+                GameObject selectedObj = Selection.activeGameObject;
+                if (selectedObj == null)
+                {
+                    EditorGUILayout.HelpBox("Please select an object in the scene to add hand gesture control.", MessageType.Info);
+                    return;
+                }
+                
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("Selected Object:", EditorStyles.boldLabel, GUILayout.Width(100));
+                EditorGUILayout.ObjectField(selectedObj, typeof(GameObject), true);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(8);
+                
+                // Gesture selection
+                EditorGUILayout.LabelField("Choose a Hand Gesture:", EditorStyles.boldLabel);
+                GUILayout.Space(4);
+                
+                string[] gestureLabels = {
+                    "👆 Point to select objects",
+                    "🤏 Pinch", 
+                    "✋ Open palm",
+                    "👉 Tap",
+                    "🤚 Wave"
+                };
+                
+                selectedGesture = (HandGesture)EditorGUILayout.Popup((int)selectedGesture, gestureLabels);
+                GUILayout.Space(8);
+                
+                // Reaction input
+                EditorGUILayout.LabelField("What should happen when you do this gesture?", EditorStyles.boldLabel);
+                GUILayout.Space(4);
+                
+                // Show placeholder text when empty
+                if (string.IsNullOrEmpty(gestureReaction))
+                {
+                    EditorGUILayout.LabelField("e.g. Change color to red, or Start spinning", EditorStyles.wordWrappedMiniLabel);
+                }
+                
+                gestureReaction = EditorGUILayout.DelayedTextField(gestureReaction, GUILayout.Height(20), GUILayout.ExpandWidth(true));
+                
+                // Show full text if longer
+                if (!string.IsNullOrEmpty(gestureReaction) && gestureReaction.Length > 50)
+                {
+                    GUILayout.Space(5);
+                    EditorGUILayout.LabelField("Full Description:", EditorStyles.boldLabel);
+                    EditorGUILayout.SelectableLabel(gestureReaction, EditorStyles.textArea, GUILayout.Height(40));
+                }
+                
+                GUILayout.Space(10);
+                
+                // Create gesture button
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                Color prevBg = GUI.backgroundColor;
+                Color prevContent = GUI.contentColor;
+                GUI.backgroundColor = ButtonBgColor;
+                GUI.contentColor = ButtonTextColor;
+                
+                GUI.enabled = !string.IsNullOrEmpty(gestureReaction);
+                if (GUILayout.Button(new GUIContent("Create Hand Control", "Create gesture-based interaction for this object."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+                {
+                    // TODO: Implement gesture creation functionality
+                    EditorUtility.DisplayDialog("Coming Soon", "Hand gesture functionality will be implemented soon!", "OK");
+                }
+                GUI.enabled = true;
+                
+                GUI.backgroundColor = prevBg;
+                GUI.contentColor = prevContent;
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error in Hand Gesture section: {e.Message}");
+                EditorGUILayout.HelpBox("Error displaying Hand Gesture section", MessageType.Error);
+            }
         }
 
         // Draws the Explorer section
