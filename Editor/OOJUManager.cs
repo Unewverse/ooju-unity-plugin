@@ -110,6 +110,12 @@ namespace OOJUPlugin
 
             // Use NetworkUtility to get the stored token
             authToken = NetworkUtility.GetStoredToken();
+            
+            // Restore user email if token exists
+            if (!string.IsNullOrEmpty(authToken))
+            {
+                userEmail = NetworkUtility.GetStoredUserEmail();
+            }
 
             if (NetworkUtility.HasValidStoredToken())
             {
@@ -120,6 +126,7 @@ namespace OOJUPlugin
             {
                 Debug.Log("No valid token found.");
                 authToken = "";
+                userEmail = "";
             }
 
             autoSyncEnabled = EditorPrefs.GetBool("OOJUManager_AutoSync", false);
@@ -163,6 +170,11 @@ namespace OOJUPlugin
             if (!string.IsNullOrEmpty(storedToken) && string.IsNullOrEmpty(authToken))
             {
                 authToken = storedToken;
+                // Also restore user email if not already set
+                if (string.IsNullOrEmpty(userEmail))
+                {
+                    userEmail = NetworkUtility.GetStoredUserEmail();
+                }
             }
             if (styles == null || !styles.IsInitialized)
             {
@@ -181,6 +193,7 @@ namespace OOJUPlugin
             {
                 NetworkUtility.ClearStoredToken();
                 authToken = "";
+                userEmail = "";
                 uploadStatus = "Logged out.";
                 downloadStatus = "";
                 assetsAvailable = false;
@@ -1576,6 +1589,7 @@ namespace OOJUPlugin
                 (token) =>
                 {
                     authToken = token;
+                    userEmail = username; // Keep the email for display
                     uploadStatus = "Login successful!";
                     isLoggingIn = false;
                     CheckAssets();

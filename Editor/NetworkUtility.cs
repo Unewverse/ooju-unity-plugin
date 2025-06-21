@@ -52,6 +52,9 @@ namespace OojiCustomPlugin
                     // Store token persistently
                     StoreToken(token);
                     
+                    // Store user email for display purposes
+                    StoreUserEmail(username);
+                    
                     // Store token expiration if available
                     if (!string.IsNullOrEmpty(responseData.expires_at))
                     {
@@ -133,6 +136,20 @@ namespace OojiCustomPlugin
             return EditorPrefs.GetString("AuthToken", "");
         }
 
+        public static void StoreUserEmail(string email)
+        {
+            if (!string.IsNullOrEmpty(email))
+            {
+                EditorPrefs.SetString("UserEmail", email);
+                Debug.Log("User email stored successfully");
+            }
+        }
+
+        public static string GetStoredUserEmail()
+        {
+            return EditorPrefs.GetString("UserEmail", "");
+        }
+
         public static bool HasValidStoredToken()
         {
             string token = GetStoredToken();
@@ -144,6 +161,7 @@ namespace OojiCustomPlugin
             EditorPrefs.DeleteKey("AuthToken");
             EditorPrefs.DeleteKey("TokenExpiresAt");
             EditorPrefs.DeleteKey("UserId");
+            EditorPrefs.DeleteKey("UserEmail");
             Debug.Log("Token cleared");
         }
 
