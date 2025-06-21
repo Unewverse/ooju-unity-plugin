@@ -513,9 +513,9 @@ namespace OOJUPlugin
             showInteractionGeneration = EditorGUILayout.Foldout(showInteractionGeneration, "Interaction Generation", true, bigFoldoutStyle);
             if (showInteractionGeneration)
             {
-                DrawDescriptionSection(buttonWidth);
-                GUILayout.Space(16);
                 DrawSentenceToInteractionSection(buttonWidth);
+                GUILayout.Space(16);
+                DrawDescriptionSection(buttonWidth);
             }
             EditorGUILayout.EndVertical();
 
@@ -614,9 +614,12 @@ namespace OOJUPlugin
                         if (!string.IsNullOrWhiteSpace(cleanSuggestion) && cleanSuggestion != "NONE" && cleanSuggestion != "ERROR" && !cleanSuggestion.Contains("No valid suggestions found"))
                         {
                             // Remove bold markdown (**) from suggestion
-                            cleanSuggestion = System.Text.RegularExpressions.Regex.Replace(cleanSuggestion, @"\*\*(.*?)\*\*", "$1");
-                            // Show suggestion as a word-wrapped label with max width
-                            EditorGUILayout.LabelField(cleanSuggestion, EditorStyles.wordWrappedLabel, GUILayout.MaxWidth(400));
+                            string fullSuggestion = System.Text.RegularExpressions.Regex.Replace(cleanSuggestion, @"\*\*(.*?)\*\*", "$1");
+                            
+                            // Show only short version in UI for better readability
+                            string shortSuggestion = GetShortSuggestion(fullSuggestion);
+                            EditorGUILayout.LabelField(shortSuggestion, EditorStyles.wordWrappedLabel, GUILayout.MaxWidth(400));
+                            
                             // Generate button centered
                             EditorGUILayout.BeginHorizontal();
                             GUILayout.FlexibleSpace();
@@ -626,9 +629,8 @@ namespace OOJUPlugin
                             GUI.contentColor = ButtonTextColor;
                             if (GUILayout.Button(new GUIContent("Generate", "Generate this suggestion and create the script."), GUILayout.Width(80)))
                             {
-                                lastGeneratedSuggestionPerObject[objName] = cleanSuggestion;
-                                userInteractionInput = cleanSuggestion;
-                                GenerateSentenceToInteraction();
+                                // Use the detailed generation function
+                                GenerateFromSuggestion(objName, fullSuggestion);
                             }
                             GUI.backgroundColor = prevBg;
                             GUI.contentColor = prevContent;
@@ -723,7 +725,11 @@ namespace OOJUPlugin
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(10);
-            if (!string.IsNullOrEmpty(lastGeneratedClassName) && lastGeneratedClassName != "No code block found.")
+            // Only show Assign Script button if a script was actually generated and saved
+            if (!string.IsNullOrEmpty(lastGeneratedClassName) && 
+                lastGeneratedClassName != "No code block found." &&
+                !string.IsNullOrEmpty(lastGeneratedScriptPath) && 
+                System.IO.File.Exists(lastGeneratedScriptPath))
             {
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
@@ -1008,6 +1014,50 @@ namespace OOJUPlugin
                 count++;
             }
             EditorUtility.DisplayDialog("Set as Ground", $"MeshCollider added and layer set to Default for {count} object(s).", "OK");
+        }
+
+        // Helper: Extract first sentence from suggestion for UI display
+        private string GetShortSuggestion(string fullSuggestion)
+        {
+            if (string.IsNullOrEmpty(fullSuggestion)) return fullSuggestion;
+            
+            // Find first sentence ending (period, exclamation, or question mark)
+            int firstSentenceEnd = -1;
+            for (int i = 0; i < fullSuggestion.Length; i++)
+            {
+                if (fullSuggestion[i] == '.' || fullSuggestion[i] == '!' || fullSuggestion[i] == '?')
+                {
+                    firstSentenceEnd = i;
+                    break;
+                }
+            }
+            
+            if (firstSentenceEnd > 0)
+            {
+                return fullSuggestion.Substring(0, firstSentenceEnd + 1).Trim();
+            }
+            
+            // If no sentence ending found, return up to 80 characters
+            if (fullSuggestion.Length > 80)
+            {
+                return fullSuggestion.Substring(0, 80).Trim() + "...";
+            }
+            
+            return fullSuggestion;
+        }
+
+        // Helper: Generate detailed prompt for script generation based on suggestion
+        private void GenerateFromSuggestion(string objName, string fullSuggestion)
+        {
+            // Create detailed prompt for better script generation
+            string detailedPrompt = $"Create a Unity C# script for {objName} with the following interaction: {fullSuggestion}. " +
+                                   $"Make sure the script is compatible with Unity 6, uses modern C# practices, and includes proper error handling. " +
+                                   $"Scene context: {sceneDescription}";
+            
+            // Store the detailed version for generation
+            lastGeneratedSuggestionPerObject[objName] = fullSuggestion;
+            userInteractionInput = detailedPrompt;
+            GenerateSentenceToInteraction();
         }
 
         // Helper: Add a simple first-person player controller to the scene
