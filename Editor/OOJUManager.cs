@@ -85,11 +85,8 @@ namespace OOJUPlugin
         private string lastGeneratedClassName = "";
         private Dictionary<string, string> lastGeneratedSuggestionPerObject = new Dictionary<string, string>();
         private bool showInteractionGeneration = true;
-        private bool showAddPlayer = true;
-        private bool showAnimation = true;
         private GUIStyle bigFoldoutStyle;
         private UIStyles interactionStyles;
-        private AnimationUI animationUI;
 
         // Color definitions (ported from OOJUInteractionWindow)
         private readonly Color32 SectionTitleColor = new Color32(0xFC, 0xFC, 0xFC, 0xFF);
@@ -454,8 +451,7 @@ namespace OOJUPlugin
                 interactionStyles = new UIStyles();
             if (!interactionStyles.IsInitialized)
                 interactionStyles.Initialize();
-            if (animationUI == null)
-                animationUI = new AnimationUI();
+
             if (bigFoldoutStyle == null)
             {
                 bigFoldoutStyle = new GUIStyle(EditorStyles.foldout);
@@ -521,16 +517,7 @@ namespace OOJUPlugin
             }
             EditorGUILayout.EndVertical();
 
-            GUILayout.Space(20);
 
-            // Animation foldout
-            EditorGUILayout.BeginVertical();
-            showAnimation = EditorGUILayout.Foldout(showAnimation, "Animation", true, bigFoldoutStyle);
-            if (showAnimation)
-            {
-                DrawAnimationSection();
-            }
-            EditorGUILayout.EndVertical();
 
             if (isGeneratingDescription)
             {
@@ -772,29 +759,7 @@ namespace OOJUPlugin
             }
         }
 
-        // Draws the animation section
-        private void DrawAnimationSection()
-        {
-            try
-            {
-                if (animationUI == null)
-                {
-                    EditorGUILayout.HelpBox("AnimationUI is not initialized.", MessageType.Error);
-                    return;
-                }
-                if (AnimationSettings.Instance == null)
-                {
-                    EditorGUILayout.HelpBox("AnimationSettings is not initialized.", MessageType.Error);
-                    return;
-                }
-                animationUI.DrawAnimationUI();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"Error in DrawAnimationSection: {ex.Message}");
-                EditorGUILayout.HelpBox($"Error in DrawAnimationSection: {ex.Message}", MessageType.Error);
-            }
-        }
+
 
         // Draws the Settings section
         private void DrawSettingsSection()
