@@ -510,23 +510,14 @@ namespace OOJUPlugin
 
             // Interaction Generation foldout
             EditorGUILayout.BeginVertical();
-            showInteractionGeneration = EditorGUILayout.Foldout(showInteractionGeneration, "Interaction Generation", true, bigFoldoutStyle);
+            showInteractionGeneration = EditorGUILayout.Foldout(showInteractionGeneration, "Make Things Interactive", true, bigFoldoutStyle);
             if (showInteractionGeneration)
             {
                 DrawSentenceToInteractionSection(buttonWidth);
                 GUILayout.Space(16);
                 DrawDescriptionSection(buttonWidth);
-            }
-            EditorGUILayout.EndVertical();
-
-            GUILayout.Space(20);
-
-            // Player foldout
-            EditorGUILayout.BeginVertical();
-            showAddPlayer = EditorGUILayout.Foldout(showAddPlayer, "Player", true, bigFoldoutStyle);
-            if (showAddPlayer)
-            {
-                DrawAddPlayerSection(buttonWidth);
+                GUILayout.Space(16);
+                DrawExplorerSection(buttonWidth);
             }
             EditorGUILayout.EndVertical();
 
@@ -561,10 +552,10 @@ namespace OOJUPlugin
             sectionTitleStyle.normal.textColor = SectionTitleColor;
             GUIStyle descLabelStyle = new GUIStyle(EditorStyles.label);
             descLabelStyle.normal.textColor = DescriptionTextColor;
-            EditorGUILayout.LabelField("Suggestion", sectionTitleStyle);
+            EditorGUILayout.LabelField("Smart Ideas", sectionTitleStyle);
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(2);
-            EditorGUILayout.LabelField("Suggest appropriate interactions for selected objects based on the scene context.", descLabelStyle);
+            EditorGUILayout.LabelField("Get smart ideas for what your selected objects can do.", descLabelStyle);
             GUILayout.Space(8);
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
@@ -574,7 +565,7 @@ namespace OOJUPlugin
             GUI.backgroundColor = ButtonBgColor;
             GUI.contentColor = ButtonTextColor;
             EditorGUI.BeginDisabledGroup(isGeneratingDescription);
-            if (GUILayout.Button(new GUIContent("Suggest Interactions", "Suggest appropriate interactions for selected objects based on the scene context."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+            if (GUILayout.Button(new GUIContent("Give Me Ideas", "Show me what these objects can do."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
             {
                 try 
                 { 
@@ -602,7 +593,7 @@ namespace OOJUPlugin
             if (interactionSuggestions != null && interactionSuggestions.Count > 0)
             {
                 GUILayout.Space(4);
-                EditorGUILayout.LabelField("Interaction Suggestions:", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("Here's what these can do:", EditorStyles.boldLabel);
                 foreach (var kvp in interactionSuggestions)
                 {
                     string objName = kvp.Key;
@@ -627,7 +618,7 @@ namespace OOJUPlugin
                             prevContent = GUI.contentColor;
                             GUI.backgroundColor = ButtonBgColor;
                             GUI.contentColor = ButtonTextColor;
-                            if (GUILayout.Button(new GUIContent("Generate", "Generate this suggestion and create the script."), GUILayout.Width(80)))
+                            if (GUILayout.Button(new GUIContent("Create", "Make this happen for your object."), GUILayout.Width(80)))
                             {
                                 // Use the detailed generation function
                                 GenerateFromSuggestion(objName, fullSuggestion);
@@ -657,7 +648,7 @@ namespace OOJUPlugin
                 GUI.backgroundColor = ButtonBgColor;
                 GUI.contentColor = ButtonTextColor;
                 EditorGUI.BeginDisabledGroup(isGeneratingDescription);
-                if (GUILayout.Button(new GUIContent("Regenerate Interaction Suggestions", "Generate interaction suggestions for the currently selected objects based on the existing scene description and your input."), GUILayout.Width(buttonWidth), GUILayout.Height(22)))
+                if (GUILayout.Button(new GUIContent("Get More Ideas", "Show me different things these objects can do."), GUILayout.Width(buttonWidth), GUILayout.Height(22)))
                 {
                     try 
                     { 
@@ -687,16 +678,16 @@ namespace OOJUPlugin
             GUIStyle sectionTitleStyle2 = new GUIStyle(EditorStyles.boldLabel);
             sectionTitleStyle2.fontSize = 14;
             sectionTitleStyle2.normal.textColor = SectionTitleColor;
-            EditorGUILayout.LabelField("Sentence-to-Interaction", sectionTitleStyle2);
+            EditorGUILayout.LabelField("Describe What You Want", sectionTitleStyle2);
             EditorGUILayout.EndHorizontal();
             GUILayout.Space(2);
-            EditorGUILayout.LabelField("Describe the interaction you want to create as a single sentence", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("Tell me what you want this object to do", EditorStyles.miniLabel);
             GUILayout.Space(8);
             
             // Show placeholder text when empty
             if (string.IsNullOrEmpty(userInteractionInput))
             {
-                EditorGUILayout.LabelField("e.g. Make the object spin when clicked.", EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.LabelField("e.g. Spin around when I click it", EditorStyles.wordWrappedMiniLabel);
             }
             
             // Use DelayedTextField to avoid focus loss - press Enter to confirm input
@@ -716,7 +707,7 @@ namespace OOJUPlugin
             Color prevContent = GUI.contentColor;
             GUI.backgroundColor = ButtonBgColor;
             GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Generate Interaction", "Generate a Unity C# script for the described interaction."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+            if (GUILayout.Button(new GUIContent("Make It Happen", "Create the behavior you described."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
             {
                 try { GenerateSentenceToInteraction(); } catch (Exception ex) { Debug.LogError($"Error in GenerateSentenceToInteraction: {ex.Message}"); EditorUtility.DisplayDialog("Error", $"Error in GenerateSentenceToInteraction: {ex.Message}", "OK"); }
             }
@@ -741,13 +732,13 @@ namespace OOJUPlugin
                 {
                     GUI.backgroundColor = DisabledButtonBgColor;
                     GUI.contentColor = ButtonTextColor;
-                    GUILayout.Button(new GUIContent("Compiling Scripts...", "Please wait for Unity to finish compiling"), GUILayout.Width(buttonWidth), GUILayout.Height(28));
+                    GUILayout.Button(new GUIContent("Getting Ready...", "Please wait while Unity prepares your creation"), GUILayout.Width(buttonWidth), GUILayout.Height(28));
                 }
                 else
                 {
                     GUI.backgroundColor = ButtonBgColor;
                     GUI.contentColor = ButtonTextColor;
-                    if (GUILayout.Button(new GUIContent("Assign Script to Selected Object(s)", "Assign the generated script to the selected objects."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+                    if (GUILayout.Button(new GUIContent("Apply to Selected Objects", "Make your selected objects work this way."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
                     {
                         AssignScriptToSelectedObjects();
                     }
@@ -763,16 +754,16 @@ namespace OOJUPlugin
             {
                 if (!string.IsNullOrEmpty(lastGeneratedScriptPath))
                 {
-                    EditorGUILayout.HelpBox($"Generated script saved to: {lastGeneratedScriptPath}", MessageType.Info);
+                    EditorGUILayout.HelpBox($"Your creation is ready! Saved to: Assets/OOJU/Interaction/Generated", MessageType.Info);
                 }
                 if (!string.IsNullOrEmpty(lastSuggestedObjectNames))
                 {
-                    EditorGUILayout.LabelField("Suggested Object Name(s):", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField("This works best with objects named:", EditorStyles.boldLabel);
                     EditorGUILayout.TextField(lastSuggestedObjectNames);
                 }
                 if (foundSuggestedObjects != null && foundSuggestedObjects.Count > 0)
                 {
-                    EditorGUILayout.LabelField("Found in Scene:", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField("Found these objects in your world:", EditorStyles.boldLabel);
                     foreach (var obj in foundSuggestedObjects)
                     {
                         EditorGUILayout.ObjectField(obj, typeof(GameObject), true);
@@ -917,20 +908,35 @@ namespace OOJUPlugin
             GUILayout.Space(20);
         }
 
+        // Draws the Explorer section
+        private void DrawExplorerSection(float buttonWidth)
+        {
+            try
+            {
+                // Section icon and header
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label(EditorGUIUtility.IconContent("Avatar Icon"), GUILayout.Width(22), GUILayout.Height(22));
+                GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+                sectionTitleStyle.fontSize = 14;
+                sectionTitleStyle.normal.textColor = SectionTitleColor;
+                EditorGUILayout.LabelField("Explorer", sectionTitleStyle);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(2);
+                EditorGUILayout.LabelField("Add someone who can walk around and explore your world.", EditorStyles.miniLabel);
+                GUILayout.Space(8);
+                
+                DrawAddPlayerSection(buttonWidth);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error in Explorer section: {e.Message}");
+                EditorGUILayout.HelpBox("Error displaying Explorer section", MessageType.Error);
+            }
+        }
+
         // Draws the Add Player section (UI + logic)
         private void DrawAddPlayerSection(float buttonWidth)
         {
-            // Section icon and header
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label(EditorGUIUtility.IconContent("Avatar Icon"), GUILayout.Width(22), GUILayout.Height(22));
-            GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
-            sectionTitleStyle.fontSize = 14;
-            sectionTitleStyle.normal.textColor = SectionTitleColor;
-            EditorGUILayout.LabelField("Add Player", sectionTitleStyle);
-            EditorGUILayout.EndHorizontal();
-            GUILayout.Space(2);
-            EditorGUILayout.LabelField("Add a player controller to your scene.", EditorStyles.miniLabel);
-            GUILayout.Space(8);
             // Add First-person Player button
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
@@ -938,7 +944,7 @@ namespace OOJUPlugin
             Color prevContent = GUI.contentColor;
             GUI.backgroundColor = ButtonBgColor;
             GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Add First-person Player", "Add a first-person player controller to the scene."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+            if (GUILayout.Button(new GUIContent("Add Explorer", "Add someone to walk around and see your world."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
             {
                 AddFirstPersonPlayerToScene();
             }
@@ -954,7 +960,7 @@ namespace OOJUPlugin
             prevContent = GUI.contentColor;
             GUI.backgroundColor = ButtonBgColor;
             GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Add Ground", "Add a large ground plane (cube) at y=0."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+            if (GUILayout.Button(new GUIContent("Add Floor", "Add a floor to walk on."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
             {
                 AddGroundToScene();
             }
@@ -970,7 +976,7 @@ namespace OOJUPlugin
             prevContent = GUI.contentColor;
             GUI.backgroundColor = ButtonBgColor;
             GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Set Selected as Ground", "Add a MeshCollider to the selected object(s) and set their layer to Default."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+            if (GUILayout.Button(new GUIContent("Make This a Floor", "Turn selected objects into something you can walk on."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
             {
                 SetSelectedAsGround();
             }
