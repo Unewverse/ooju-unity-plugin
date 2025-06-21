@@ -729,12 +729,24 @@ namespace OOJUPlugin
                 GUILayout.FlexibleSpace();
                 prevBg = GUI.backgroundColor;
                 prevContent = GUI.contentColor;
-                GUI.backgroundColor = ButtonBgColor;
-                GUI.contentColor = ButtonTextColor;
-                if (GUILayout.Button(new GUIContent("Assign Script to Selected Object(s)", "Assign the generated script to the selected objects."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+                
+                // Show compilation status
+                if (EditorApplication.isCompiling)
                 {
-                    AssignScriptToSelectedObjects();
+                    GUI.backgroundColor = DisabledButtonBgColor;
+                    GUI.contentColor = ButtonTextColor;
+                    GUILayout.Button(new GUIContent("Compiling Scripts...", "Please wait for Unity to finish compiling"), GUILayout.Width(buttonWidth), GUILayout.Height(28));
                 }
+                else
+                {
+                    GUI.backgroundColor = ButtonBgColor;
+                    GUI.contentColor = ButtonTextColor;
+                    if (GUILayout.Button(new GUIContent("Assign Script to Selected Object(s)", "Assign the generated script to the selected objects."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+                    {
+                        AssignScriptToSelectedObjects();
+                    }
+                }
+                
                 GUI.backgroundColor = prevBg;
                 GUI.contentColor = prevContent;
                 GUILayout.FlexibleSpace();
@@ -1136,12 +1148,63 @@ namespace OOJUPlugin
                 EditorUtility.DisplayDialog("Assign Script", "No objects selected.", "OK");
                 return;
             }
+            
+            // Force compilation and wait
+            AssetDatabase.Refresh();
+            EditorUtility.DisplayProgressBar("Assigning Script", "Compiling scripts...", 0.5f);
+            
+            // Wait for compilation to complete
+            int maxWaitTime = 150; // 15 seconds max
+            int waitCount = 0;
+            while (EditorApplication.isCompiling && waitCount < maxWaitTime)
+            {
+                System.Threading.Thread.Sleep(100);
+                waitCount++;
+                
+                // Update progress bar
+                float progress = (float)waitCount / maxWaitTime;
+                EditorUtility.DisplayProgressBar("Assigning Script", $"Waiting for compilation... ({waitCount}/15s)", progress);
+            }
+            
+            EditorUtility.ClearProgressBar();
+            
             var scriptType = GetTypeByName(lastGeneratedClassName);
             if (scriptType == null)
             {
-                EditorUtility.DisplayDialog("Assign Script", $"Could not find compiled script type: {lastGeneratedClassName}. Please recompile scripts and try again.", "OK");
+                // Try to find the script file and suggest manual assignment
+                string scriptPath = lastGeneratedScriptPath;
+                if (!string.IsNullOrEmpty(scriptPath) && System.IO.File.Exists(scriptPath))
+                {
+                    // Get the MonoScript asset
+                    string relativePath = "Assets" + scriptPath.Substring(Application.dataPath.Length);
+                    relativePath = relativePath.Replace('\\', '/');
+                    MonoScript monoScript = AssetDatabase.LoadAssetAtPath<MonoScript>(relativePath);
+                    
+                    if (monoScript != null)
+                    {
+                        EditorUtility.DisplayDialog("Manual Assignment Required", 
+                            $"Script file found but not yet compiled: {lastGeneratedClassName}\n\n" +
+                            $"Please wait for Unity to finish compiling, then:\n" +
+                            $"1. Select your object(s) in the scene\n" +
+                            $"2. Drag the script from Project window to the Inspector\n" +
+                            $"Script location: {relativePath}", "OK");
+                        
+                        // Ping the script in project window
+                        EditorGUIUtility.PingObject(monoScript);
+                        return;
+                    }
+                }
+                
+                EditorUtility.DisplayDialog("Script Not Found", 
+                    $"Could not find compiled script type: {lastGeneratedClassName}\n\n" +
+                    $"Possible solutions:\n" +
+                    $"1. Wait for Unity to finish compiling scripts\n" +
+                    $"2. Check Console for compilation errors\n" +
+                    $"3. Try generating the script again\n" +
+                    $"4. Manually assign the script from Project window", "OK");
                 return;
             }
+            
             int addedCount = 0;
             foreach (var obj in selectedObjects)
             {
@@ -1157,15 +1220,99 @@ namespace OOJUPlugin
         // Helper: Find a Type by class name in loaded assemblies
         private Type GetTypeByName(string className)
         {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            if (string.IsNullOrEmpty(className))
+                return null;
+                
+            Debug.Log($"[OOJU] Searching for class type: {className}");
+                
+            try
             {
-                var type = assembly.GetType(className);
-                if (type != null)
-                    return type;
-                type = assembly.GetTypes().FirstOrDefault(t => t.Name == className);
-                if (type != null)
-                    return type;
+                // Force refresh and wait a bit more for compilation
+                AssetDatabase.Refresh();
+                System.Threading.Thread.Sleep(200);
+                
+                // First try exact match in user assemblies (Assembly-CSharp, etc.)
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    // Focus on user code assemblies
+                    if (assembly.FullName.Contains("Assembly-CSharp") || 
+                        assembly.FullName.Contains("Assembly-CSharp-Editor"))
+                    {
+                        try
+                        {
+                            var type = assembly.GetType(className);
+                            if (type != null && type.IsSubclassOf(typeof(MonoBehaviour)))
+                            {
+                                Debug.Log($"[OOJU] Found exact match: {type.FullName} in {assembly.FullName}");
+                                return type;
+                            }
+                        }
+                        catch { continue; }
+                    }
+                }
+                
+                // Second try: search by name only in user assemblies
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (assembly.FullName.Contains("Assembly-CSharp"))
+                    {
+                        try
+                        {
+                            var types = assembly.GetTypes();
+                            var type = types.FirstOrDefault(t => t.Name == className && t.IsSubclassOf(typeof(MonoBehaviour)));
+                            if (type != null)
+                            {
+                                Debug.Log($"[OOJU] Found by name: {type.FullName} in {assembly.FullName}");
+                                return type;
+                            }
+                        }
+                        catch { continue; }
+                    }
+                }
+                
+                // Third try: search all non-system assemblies
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    // Skip system assemblies for performance
+                    if (assembly.FullName.StartsWith("System") || 
+                        assembly.FullName.StartsWith("Microsoft") ||
+                        (assembly.FullName.StartsWith("Unity.") && !assembly.FullName.Contains("Assembly")))
+                        continue;
+                        
+                    try
+                    {
+                        var types = assembly.GetTypes();
+                        var type = types.FirstOrDefault(t => t.Name == className && t.IsSubclassOf(typeof(MonoBehaviour)));
+                        if (type != null)
+                        {
+                            Debug.Log($"[OOJU] Found in assembly: {type.FullName} in {assembly.FullName}");
+                            return type;
+                        }
+                    }
+                    catch { continue; }
+                }
+                
+                Debug.LogWarning($"[OOJU] Could not find type: {className}");
+                
+                // Debug: List all MonoBehaviour types in user assemblies
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (assembly.FullName.Contains("Assembly-CSharp"))
+                    {
+                        try
+                        {
+                            var types = assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(MonoBehaviour))).ToList();
+                            Debug.Log($"[OOJU] Available MonoBehaviour types in {assembly.FullName}: {string.Join(", ", types.Select(t => t.Name))}");
+                        }
+                        catch { }
+                    }
+                }
             }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[OOJU] Error searching for type {className}: {ex.Message}");
+            }
+            
             return null;
         }
 
@@ -1234,8 +1381,8 @@ namespace OOJUPlugin
             return found;
         }
 
-        // Helper: Save the generated script code to a new C# file in the project, returns the file path
-        private string SaveGeneratedScript(string scriptCode, string className = null)
+        // Helper: Save the generated script code and return file info
+        private (string filePath, string className) SaveGeneratedScriptWithInfo(string scriptCode, string className = null)
         {
             string directory = "Assets/OOJU/Interaction/Generated";
             if (!System.IO.Directory.Exists(directory))
@@ -1245,13 +1392,20 @@ namespace OOJUPlugin
                 className = GenerateClassNameFromSentence(userInteractionInput);
             }
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            className = $"{className}_{timestamp}";
-            scriptCode = ReplaceClassNameInScript(scriptCode, className);
-            scriptCode = RemoveDuplicateClassAndMethods(scriptCode, className);
-            string filePath = System.IO.Path.Combine(directory, $"{className}.cs");
+            string finalClassName = $"{className}_{timestamp}";
+            scriptCode = ReplaceClassNameInScript(scriptCode, finalClassName);
+            scriptCode = RemoveDuplicateClassAndMethods(scriptCode, finalClassName);
+            string filePath = System.IO.Path.Combine(directory, $"{finalClassName}.cs");
             System.IO.File.WriteAllText(filePath, scriptCode);
             AssetDatabase.Refresh();
-            return filePath;
+            return (filePath, finalClassName);
+        }
+
+        // Helper: Save the generated script code to a new C# file in the project, returns the file path
+        private string SaveGeneratedScript(string scriptCode, string className = null)
+        {
+            var result = SaveGeneratedScriptWithInfo(scriptCode, className);
+            return result.filePath;
         }
 
         // Helper: Replace the first class name in the script code with the given class name
@@ -1455,18 +1609,30 @@ namespace OOJUPlugin
             if (!CheckLLMApiKeyAndShowError()) return;
             try
             {
-                if (string.IsNullOrEmpty(sceneDescription))
-                {
-                    EditorUtility.DisplayDialog("Error", "Please generate a scene description first.", "OK");
-                    return;
-                }
                 if (string.IsNullOrEmpty(userInteractionInput))
                 {
                     EditorUtility.DisplayDialog("Error", "Please enter an interaction description.", "OK");
                     return;
                 }
+                
                 isGeneratingDescription = true;
-                EditorUtility.DisplayProgressBar("Generating Interaction", "Please wait while the interaction is being generated...", 0.5f);
+                
+                // Auto-generate scene description if not available
+                if (string.IsNullOrEmpty(sceneDescription))
+                {
+                    EditorUtility.DisplayProgressBar("Generating Scene Description", "Analyzing scene first...", 0.3f);
+                    sceneDescription = await OIDescriptor.GenerateSceneDescription();
+                    
+                    if (string.IsNullOrEmpty(sceneDescription) || sceneDescription.Contains("Error"))
+                    {
+                        EditorUtility.ClearProgressBar();
+                        isGeneratingDescription = false;
+                        EditorUtility.DisplayDialog("Error", "Failed to generate scene description. Please check your API settings and try again.", "OK");
+                        return;
+                    }
+                }
+                
+                EditorUtility.DisplayProgressBar("Generating Interaction", "Please wait while the interaction is being generated...", 0.7f);
                 string prompt = $"Scene Description:\n{sceneDescription}\n\nUser Request (Sentence):\n{userInteractionInput}\n\n1. Generate a Unity C# script for this interaction.\n2. The script must define only one class, and the class name must be unique (for example, append a timestamp or a random string).\n3. The generated class must inherit from UnityEngine.MonoBehaviour.\n4. Do not define the same class or method more than once.\n5. If you need to implement Update, Start, or other Unity methods, each should appear only once in the class.\n6. All comments in the script must be written in English.\n7. Output only the code block.\n8. Prioritize interactions that can be implemented with Unity scripts only, and avoid suggestions that require the user to prepare extra resources such as sound or animation files.";
                 sentenceToInteractionResult = await OIDescriptor.RequestLLMInteraction(prompt);
                 string code = ExtractCodeBlock(sentenceToInteractionResult);
@@ -1482,8 +1648,10 @@ namespace OOJUPlugin
                 }
                 if (!string.IsNullOrEmpty(code))
                 {
-                    lastGeneratedScriptPath = SaveGeneratedScript(code);
-                    lastGeneratedClassName = ExtractClassNameFromCode(code);
+                    // Save script and get the actual class name with timestamp
+                    var scriptInfo = SaveGeneratedScriptWithInfo(code);
+                    lastGeneratedScriptPath = scriptInfo.filePath;
+                    lastGeneratedClassName = scriptInfo.className;
                     UnityEditor.AssetDatabase.Refresh();
                 }
                 else
@@ -1493,7 +1661,23 @@ namespace OOJUPlugin
                 }
                 lastSuggestedObjectNames = ExtractSuggestedObjectNames(sentenceToInteractionResult);
                 foundSuggestedObjects = FindObjectsInSceneByNames(lastSuggestedObjectNames);
-                EditorUtility.DisplayDialog("Sentence-to-Interaction", "Interaction generated successfully. You can now assign the script to the selected object(s).", "OK");
+                
+                // Show success message with script info
+                string successMessage = "Interaction generated successfully!\n\n";
+                if (!string.IsNullOrEmpty(lastGeneratedClassName))
+                {
+                    successMessage += $"Generated script: {lastGeneratedClassName}\n";
+                }
+                if (!string.IsNullOrEmpty(lastGeneratedScriptPath))
+                {
+                    successMessage += $"Location: Assets/OOJU/Interaction/Generated\n\n";
+                }
+                successMessage += "Next steps:\n";
+                successMessage += "1. Wait for Unity to compile the script\n";
+                successMessage += "2. Select object(s) in the scene\n";
+                successMessage += "3. Click 'Assign Script to Selected Object(s)'";
+                
+                EditorUtility.DisplayDialog("Script Generated", successMessage, "OK");
             }
             catch (Exception ex)
             {
