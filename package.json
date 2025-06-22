@@ -1,13 +1,12 @@
 {
-  "name": "com.ooju.userassetmanager",
-  "version": "0.1.0",
-  "displayName": "OOJU Asset",
-  "description": "A Unity Editor plugin to manage and upload user assets.",
-  "unity": "2021.1",
-  "author": "OOJU",
-  "category": "OOJU",
-  "dependencies": {
-    "com.unity.cloud.gltfast": "6.10.1",
-    "com.unity.editorcoroutines": "1.0.0"
-  }
-}
+    "name": "com.ooju.unityplugin",
+    "version": "1.1.0",
+    "displayName": "OOJU Unity Plugin",
+    "description": "OOJU Unity Plugin for asset management and interaction generation for XR",
+    "unity": "2020.3",
+    "dependencies": {
+        "com.unity.editorcoroutines": "1.0.0",
+        "com.unity.cloud.gltfast": "6.10.1",
+        "com.unity.nuget.newtonsoft-json": "3.0.2"
+    }
+} 

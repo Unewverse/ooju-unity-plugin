@@ -1,0 +1,20 @@
+{
+  "name": "OOJUInteraction.Editor",
+  "rootNamespace": "OOJUPlugin",
+  "references": [
+    "OOJUInteraction.Runtime",
+    "Unity.EditorCoroutines.Editor",
+    "glTFast.Export",
+    "Unity.Mathematics",
+    "glTFast"
+  ],
+  "includePlatforms": [ "Editor" ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+} 

@@ -52,6 +52,9 @@ namespace OojiCustomPlugin
                     // Store token persistently
                     StoreToken(token);
                     
+                    // Store user email for display purposes
+                    StoreUserEmail(username);
+                    
                     // Store token expiration if available
                     if (!string.IsNullOrEmpty(responseData.expires_at))
                     {
@@ -133,6 +136,20 @@ namespace OojiCustomPlugin
             return EditorPrefs.GetString("AuthToken", "");
         }
 
+        public static void StoreUserEmail(string email)
+        {
+            if (!string.IsNullOrEmpty(email))
+            {
+                EditorPrefs.SetString("UserEmail", email);
+                Debug.Log("User email stored successfully");
+            }
+        }
+
+        public static string GetStoredUserEmail()
+        {
+            return EditorPrefs.GetString("UserEmail", "");
+        }
+
         public static bool HasValidStoredToken()
         {
             string token = GetStoredToken();
@@ -144,6 +161,7 @@ namespace OojiCustomPlugin
             EditorPrefs.DeleteKey("AuthToken");
             EditorPrefs.DeleteKey("TokenExpiresAt");
             EditorPrefs.DeleteKey("UserId");
+            EditorPrefs.DeleteKey("UserEmail");
             Debug.Log("Token cleared");
         }
 
@@ -196,13 +214,18 @@ namespace OojiCustomPlugin
         public static IEnumerator GetExportableAssets(string token, Action<List<ExportableAsset>> onSuccess, Action<string> onFailure)
         {
             UnityWebRequest request = null;
+            string apiUrl = BackendUrl + "/assets";
+            
+            Debug.Log($"[OOJU] Making API request to: {apiUrl}");
+            Debug.Log($"[OOJU] Using token: {token?.Substring(0, Math.Min(10, token?.Length ?? 0))}...");
             
             try {
-                request = UnityWebRequest.Get(BackendUrl + "/assets/exportable");
+                request = UnityWebRequest.Get(apiUrl);
                 request.SetRequestHeader("Authorization", $"Bearer {token}");
+                Debug.Log($"[OOJU] Request headers set successfully");
             }
             catch (Exception ex) {
-                Debug.LogError("Error creating web request: " + ex.Message);
+                Debug.LogError($"[OOJU] Error creating web request: {ex.Message}");
                 onFailure?.Invoke("Error creating web request: " + ex.Message);
                 yield break;
             }
@@ -210,17 +233,21 @@ namespace OojiCustomPlugin
             yield return request.SendWebRequest();
 
             try {
+                Debug.Log($"[OOJU] Request completed with result: {request.result}");
+                Debug.Log($"[OOJU] Response code: {request.responseCode}");
+                
                 if (request.result == UnityWebRequest.Result.Success)
                 {
-                    Debug.Log($"Assets response: {request.downloadHandler.text}");
+                    string responseText = request.downloadHandler.text;
+                    Debug.Log($"[OOJU] Raw response: {responseText}");
                     
-                    if (string.IsNullOrWhiteSpace(request.downloadHandler.text)) {
-                        Debug.LogWarning("Empty response from server");
+                    if (string.IsNullOrWhiteSpace(responseText)) {
+                        Debug.LogWarning("[OOJU] Empty response from server");
                         onSuccess?.Invoke(new List<ExportableAsset>());
                         yield break;
                     }
                     
-                    string jsonResponse = request.downloadHandler.text;
+                    string jsonResponse = responseText;
                     
                     if (!jsonResponse.TrimStart().StartsWith("["))
                     {
@@ -231,33 +258,40 @@ namespace OojiCustomPlugin
                         jsonResponse = "{ \"assets\": " + jsonResponse + "}";
                     }
                     
+                    Debug.Log($"[OOJU] Formatted JSON for parsing: {jsonResponse}");
+                    
                     ExportableAssetsResponse response = JsonUtility.FromJson<ExportableAssetsResponse>(jsonResponse);
                     
                     if (response != null && response.assets != null)
                     {
-                        Debug.Log($"Parsed {response.assets.Length} assets");
+                        Debug.Log($"[OOJU] Successfully parsed {response.assets.Length} assets");
                         if (response.assets.Length > 0)
                         {
-                            Debug.Log($"First asset: id={response.assets[0].id}, name={response.assets[0].filename}, type={response.assets[0].content_type}");
+                            Debug.Log($"[OOJU] First asset: id={response.assets[0].id}, name={response.assets[0].filename}, type={response.assets[0].content_type}");
                         }
                         
                         onSuccess?.Invoke(new List<ExportableAsset>(response.assets));
                     }
                     else
                     {
-                        Debug.LogWarning("No assets found in response");
+                        Debug.LogWarning("[OOJU] No assets found in response or failed to parse");
                         onSuccess?.Invoke(new List<ExportableAsset>());
                     }
                 }
                 else
                 {
-                    Debug.LogError($"Failed to get assets: {request.error}");
-                    onFailure?.Invoke(request.error);
+                    string errorDetails = $"Status: {request.responseCode}, Error: {request.error}";
+                    if (!string.IsNullOrEmpty(request.downloadHandler?.text))
+                    {
+                        errorDetails += $", Response: {request.downloadHandler.text}";
+                    }
+                    Debug.LogError($"[OOJU] Failed to get assets: {errorDetails}");
+                    onFailure?.Invoke($"API request failed: {errorDetails}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Error processing assets: {ex.Message}");
+                Debug.LogError($"[OOJU] Error processing assets response: {ex.Message}");
                 Debug.LogException(ex);
                 onFailure?.Invoke("Error processing assets: " + ex.Message);
             }
@@ -352,6 +386,34 @@ namespace OojiCustomPlugin
             {
                 Debug.LogError("Failed to download file: " + fileRequest.error);
                 onComplete?.Invoke(false);
+            }
+        }
+
+        // Download preview image for an asset
+        public static IEnumerator DownloadAssetPreview(string assetId, string token, Action<Texture2D> onSuccess, Action<string> onFailure)
+        {
+            string previewUrl = $"{BackendUrl}/assets/{assetId}/preview";
+            
+            UnityWebRequest request = UnityWebRequestTexture.GetTexture(previewUrl);
+            request.SetRequestHeader("Authorization", $"Bearer {token}");
+            
+            yield return request.SendWebRequest();
+            
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                Texture2D texture = DownloadHandlerTexture.GetContent(request);
+                if (texture != null)
+                {
+                    onSuccess?.Invoke(texture);
+                }
+                else
+                {
+                    onFailure?.Invoke("Failed to create texture from downloaded data");
+                }
+            }
+            else
+            {
+                onFailure?.Invoke($"Preview download failed: {request.error}");
             }
         }
 

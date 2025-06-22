@@ -1,33 +1,123 @@
-# Ooju Asset Manager
+# OOJU Unity Plugin
 
-Ooju Asset Manager is a Unity Editor plugin that allows users to upload assets. It supports exporting GameObjects to GLB format using GLTFast and provides an intuitive interface for asset management.
-
----
+A comprehensive Unity plugin for asset management and interactive animation systems, providing seamless integration with the OOJU platform.
 
 ## Features
 
-- Export GameObjects to `.glb` format using [GLTFast](https://github.com/atteneder/glTFast).
-- Manage user authentication and assets in the Unity Editor.
+### Asset Management
+- **Cloud-based Asset Storage**: Upload and download assets to/from OOJU cloud platform
+- **Automatic Synchronization**: Real-time sync of modified assets with cloud storage
+- **GLB File Support**: Native support for GLB/GLTF files with automatic GLTFast integration
+- **Asset Preview Generation**: Automatic thumbnail generation for uploaded assets
+- **User Authentication**: Secure login system with token-based authentication
+- **Asset Search & Filtering**: Advanced search and filtering capabilities for asset management
+- **Batch Operations**: Upload multiple files simultaneously
 
----
+### Interactive Scene Generation
+- **AI-Powered Scene Analysis**: Automatic scene description generation using LLM integration
+- **Interaction Suggestion**: AI-generated interaction suggestions for scene objects
+- **Natural Language to Code**: Convert natural language descriptions to Unity scripts
+- **Player Controller Generation**: Automatic first-person player controller creation
+- **Ground Detection**: Automatic ground plane setup for scenes
+- **Script Auto-Assignment**: Intelligent script assignment to selected objects
+
+### Development Tools
+- **Editor Integration**: Seamless Unity Editor integration with custom UI
+- **Coroutine Management**: Efficient animation handling using Unity coroutines
+- **Settings Management**: Centralized animation and plugin settings
+- **Error Handling**: Comprehensive error handling and user feedback
+- **Performance Optimization**: Optimized asset loading and animation processing
 
 ## Installation
 
-### Option 1: Using Unity Package Manager
+### Prerequisites
+- Unity 6000.0 or later
+- Internet connection for cloud features
 
-1. Open Unity and go to **Window > Package Manager**.
-2. Click the **+** button in the top-left corner and select **Add package from git url**.
-3. Enter the following package url: https://github.com/Unewverse/ooju-unity-plugin.git
+### Installation Steps
+1. Open Unity Package Manager (Window > Package Manager)
+2. Click the '+' button and select 'Add package from git URL'
+3. Enter: `com.ooju.unityplugin`
+4. Click 'Add'
 
-## How to Use
+### Dependencies
+The plugin will automatically install required dependencies:
+- Unity Editor Coroutines
+- GLTFast (for GLB/GLTF file support)
+- Newtonsoft JSON
 
-1. Authenticate Your Account
+## Usage
 
-- Open the Ooju Asset Manager window from tools > OOJU Asset Manager.
-- Log in using your account credentials.
+### Getting Started
+1. Open the OOJU Manager: `OOJU > Manager` from Unity's menu bar
+2. Navigate between Asset and Interaction tabs
+3. Log in with your OOJU account credentials
 
-2. Uploading Assets
+### Asset Management
+1. **Upload Assets**:
+   - Drag and drop files into the upload area
+   - Or click "Browse Files" to select files manually
+   - Supported formats: GLB, GLTF, images, and other Unity-compatible formats
 
-- Select the GameObject in your Unity scene that you want to export.
-- Open the Ooju Asset Manager window and click "Export to GLB and Upload".
-- The file will be exported and automatically stored in your account.
+2. **Download Assets**:
+   - Browse available assets in the "My Assets" tab
+   - Click download button for individual assets
+   - Use "Download All" for batch operations
+
+### Interactive Features
+1. **Scene Analysis**:
+   - Click "Analyze Scene" to generate AI-powered scene descriptions
+   - Review suggested interactions for scene objects
+
+2. **Natural Language to Script**:
+   - Enter natural language descriptions
+   - Generate Unity scripts automatically
+   - Scripts are saved and can be assigned to objects
+
+3. **Player Setup**:
+   - Add first-person player controller to scene
+   - Configure ground detection
+   - Set up basic scene navigation
+
+
+### Network Settings
+- Backend URL configuration
+- Authentication token management
+- Upload/download timeout settings
+
+### LLM Integration
+- Support for multiple LLM providers (OpenAI, Claude, Gemini)
+- API key configuration
+- Custom prompt templates
+
+## Troubleshooting
+
+### Common Issues
+1. **GLTFast not installed**: Use the "Install GLTFast" button in the manager
+2. **Authentication failed**: Check credentials and internet connection
+3. **Upload failed**: Verify file format and size limits
+4. **Animation not working**: Ensure ObjectAutoAnimator component is attached
+
+### Debug Information
+- Check Unity Console for detailed error messages
+- Enable debug logging in NetworkUtility for network troubleshooting
+- Verify token expiration and refresh if needed
+
+## Support
+
+For technical support and feature requests:
+- Email: support@ooju.com
+- Website: https://www.ooju.com
+- Documentation: Available in the plugin's help system
+
+## License
+
+This plugin is proprietary software owned by OOJU. A valid license is required for commercial use.
+
+## Version History
+
+### v1.1.0
+- Asset management system
+- Interactive scene generation
+- Cloud synchronization 
+- XR Hand input system

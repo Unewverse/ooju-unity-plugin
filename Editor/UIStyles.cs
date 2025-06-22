@@ -2,7 +2,7 @@ using UnityEditor;
 using UnityEngine;
 using System;
 
-namespace OojiCustomPlugin
+namespace OOJUPlugin
 {
     public class UIStyles
     {

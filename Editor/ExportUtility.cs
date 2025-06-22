@@ -83,64 +83,64 @@ public static class ExportUtility
     }
 
     public static void CustomExportGLBAsync(GameObject gameObject, string outputPath, Action<bool> onComplete)
+    {
+        try
         {
-            try
-            {
-                GameObject tempObject = GameObject.Instantiate(gameObject);
+            GameObject tempObject = GameObject.Instantiate(gameObject);
+            
+            Task<string> exportTask = CustomExportGLB(tempObject);
+            
+            EditorApplication.CallbackFunction checkTaskStatus = null;
+            checkTaskStatus = () => {
+                if (!exportTask.IsCompleted)
+                    return;
                 
-                Task<string> exportTask = CustomExportGLB(tempObject);
+                EditorApplication.update -= checkTaskStatus;
                 
-                EditorApplication.CallbackFunction checkTaskStatus = null;
-                checkTaskStatus = () => {
-                    if (!exportTask.IsCompleted)
-                        return;
-                    
-                    EditorApplication.update -= checkTaskStatus;
-                    
-                    try
-                    {
-                        if (tempObject != null)
-                            GameObject.DestroyImmediate(tempObject);
-                            
-                        if (exportTask.IsFaulted)
-                        {
-                            onComplete(false);
-                            return;
-                        }
+                try
+                {
+                    if (tempObject != null)
+                        GameObject.DestroyImmediate(tempObject);
                         
-                        string tempPath = exportTask.Result;
-                        
-                        if (string.IsNullOrEmpty(tempPath) || !File.Exists(tempPath))
-                        {
-                            onComplete(false);
-                            return;
-                        }
-                        
-                        string directory = Path.GetDirectoryName(outputPath);
-                        if (!Directory.Exists(directory))
-                            Directory.CreateDirectory(directory);
-                        
-                        File.Copy(tempPath, outputPath, true);
-                        
-                        if (File.Exists(tempPath))
-                            File.Delete(tempPath);
-                            
-                        AssetDatabase.Refresh();
-                        
-                        onComplete(true);
-                    }
-                    catch (Exception ex)
+                    if (exportTask.IsFaulted)
                     {
                         onComplete(false);
+                        return;
                     }
-                };
-                
-                EditorApplication.update += checkTaskStatus;
-            }
-            catch (Exception ex)
-            {
-                onComplete(false);
-            }
+                    
+                    string tempPath = exportTask.Result;
+                    
+                    if (string.IsNullOrEmpty(tempPath) || !File.Exists(tempPath))
+                    {
+                        onComplete(false);
+                        return;
+                    }
+                    
+                    string directory = Path.GetDirectoryName(outputPath);
+                    if (!Directory.Exists(directory))
+                        Directory.CreateDirectory(directory);
+                    
+                    File.Copy(tempPath, outputPath, true);
+                    
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                        
+                    AssetDatabase.Refresh();
+                    
+                    onComplete(true);
+                }
+                catch
+                {
+                    onComplete(false);
+                }
+            };
+            
+            EditorApplication.update += checkTaskStatus;
         }
+        catch
+        {
+            onComplete(false);
+        }
+    }
 
 }
