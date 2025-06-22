@@ -93,6 +93,13 @@ namespace OOJUPlugin
         {
             configMap = new Dictionary<GestureType, GestureInteractionConfig>();
             
+            // Ensure interactions array is not null
+            if (interactions == null)
+            {
+                interactions = new GestureInteractionConfig[0];
+                return;
+            }
+            
             foreach (var config in interactions)
             {
                 if (config != null)
@@ -153,6 +160,12 @@ namespace OOJUPlugin
                 triggerDistance = 0.1f
             };
 
+            // Ensure interactions array is not null
+            if (interactions == null)
+            {
+                interactions = new GestureInteractionConfig[0];
+            }
+
             // Add to array
             var newInteractions = new GestureInteractionConfig[interactions.Length + 1];
             for (int i = 0; i < interactions.Length; i++)
@@ -170,11 +183,18 @@ namespace OOJUPlugin
 
         public void RemoveGestureInteraction(GestureType gesture)
         {
+            // Ensure interactions array is not null
+            if (interactions == null)
+            {
+                interactions = new GestureInteractionConfig[0];
+                return;
+            }
+
             var newInteractions = new List<GestureInteractionConfig>();
             
             foreach (var interaction in interactions)
             {
-                if (interaction.gesture != gesture)
+                if (interaction != null && interaction.gesture != gesture)
                 {
                     newInteractions.Add(interaction);
                 }

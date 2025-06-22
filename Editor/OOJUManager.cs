@@ -48,7 +48,6 @@ namespace OOJUPlugin
         private bool isGltfFastInstalled = false;
 
         // Drag and drop
-        private bool isDraggingFile = false;
         private List<string> pendingUploadFiles = new List<string>();
 
         // Asset previews
@@ -935,25 +934,26 @@ namespace OOJUPlugin
                 selectedGesture = (HandGesture)EditorGUILayout.Popup((int)selectedGesture, gestureLabels);
                 GUILayout.Space(8);
                 
-                // Reaction input
-                EditorGUILayout.LabelField("What should happen when you do this gesture?", EditorStyles.boldLabel);
+                // Show effect description for selected gesture
+                EditorGUILayout.LabelField("Effect:", EditorStyles.boldLabel);
                 GUILayout.Space(4);
                 
-                // Show placeholder text when empty
-                if (string.IsNullOrEmpty(gestureReaction))
-                {
-                    EditorGUILayout.LabelField("e.g. Change color to red, or Start spinning", EditorStyles.wordWrappedMiniLabel);
-                }
+                string effectDescription = GetDetailedEffectDescription(selectedGesture);
+                GUIStyle effectStyle = new GUIStyle(EditorStyles.helpBox);
+                effectStyle.padding = new RectOffset(12, 12, 10, 10);
+                effectStyle.fontSize = 12;
+                effectStyle.normal.textColor = DescriptionTextColor;
+                effectStyle.wordWrap = true;
+                effectStyle.alignment = TextAnchor.UpperLeft;
                 
-                gestureReaction = EditorGUILayout.DelayedTextField(gestureReaction, GUILayout.Height(20), GUILayout.ExpandWidth(true));
+                // Calculate height based on content
+                float textHeight = effectStyle.CalcHeight(new GUIContent(effectDescription), EditorGUIUtility.currentViewWidth - 40);
+                float minHeight = Mathf.Max(80f, textHeight + 20f); // Ensure minimum height and add some padding
                 
-                // Show full text if longer
-                if (!string.IsNullOrEmpty(gestureReaction) && gestureReaction.Length > 50)
-                {
-                    GUILayout.Space(5);
-                    EditorGUILayout.LabelField("Full Description:", EditorStyles.boldLabel);
-                    EditorGUILayout.SelectableLabel(gestureReaction, EditorStyles.textArea, GUILayout.Height(40));
-                }
+                EditorGUILayout.LabelField(effectDescription, effectStyle, GUILayout.Height(minHeight), GUILayout.ExpandWidth(true));
+                
+                // Auto-set gestureReaction based on selected gesture
+                gestureReaction = GetEffectName(selectedGesture);
                 
                 GUILayout.Space(10);
                 
@@ -965,12 +965,10 @@ namespace OOJUPlugin
                 GUI.backgroundColor = ButtonBgColor;
                 GUI.contentColor = ButtonTextColor;
                 
-                GUI.enabled = !string.IsNullOrEmpty(gestureReaction);
                 if (GUILayout.Button(new GUIContent("Create Hand Control", "Create gesture-based interaction for this object."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
                 {
                     CreateHandControl();
                 }
-                GUI.enabled = true;
                 
                 GUI.backgroundColor = prevBg;
                 GUI.contentColor = prevContent;
@@ -2200,13 +2198,11 @@ namespace OOJUPlugin
                     DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
                     if (evt.type == EventType.DragUpdated)
                     {
-                        isDraggingFile = true;
                         Repaint();
                     }
                     if (evt.type == EventType.DragPerform)
                     {
                         DragAndDrop.AcceptDrag();
-                        isDraggingFile = false;
                         foreach (string path in DragAndDrop.paths)
                         {
                             if (File.Exists(path))
@@ -2222,7 +2218,6 @@ namespace OOJUPlugin
                     }
                     break;
                 case EventType.DragExited:
-                    isDraggingFile = false;
                     Repaint();
                     break;
             }
@@ -2418,7 +2413,7 @@ namespace OOJUPlugin
                         filteredAssets.Add(asset);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 if (filteredAssets == null)
                     filteredAssets = new List<NetworkUtility.ExportableAsset>();
@@ -2950,13 +2945,6 @@ namespace OOJUPlugin
                 return;
             }
 
-            if (string.IsNullOrEmpty(gestureReaction))
-            {
-                EditorUtility.DisplayDialog("No Reaction", 
-                    "Please describe what should happen when you perform the gesture.", "OK");
-                return;
-            }
-
             // Ensure XR Gesture Manager exists in scene
             EnsureXRGestureManager();
 
@@ -3010,26 +2998,106 @@ namespace OOJUPlugin
         {
             try
             {
-                // Add XRGestureResponder component if not present
-                var responder = target.GetComponent<OOJUPlugin.XRGestureResponder>();
-                if (responder == null)
+                // Comprehensive null and validity checks
+                if (target == null)
                 {
-                    responder = target.AddComponent<OOJUPlugin.XRGestureResponder>();
+                    Debug.LogError("[OOJU] SetupGestureInteraction: target GameObject is null");
+                    return false;
                 }
 
-                // Map selected gesture to interaction type
+                if (!target)
+                {
+                    Debug.LogError("[OOJU] SetupGestureInteraction: target GameObject has been destroyed");
+                    return false;
+                }
+
+                Debug.Log($"[OOJU] Setting up gesture interaction for: {target.name}");
+                Debug.Log($"[OOJU] Target active: {target.activeInHierarchy}, prefab mode: {PrefabUtility.IsPartOfPrefabAsset(target)}");
+
+                // Check if object is part of a prefab asset (not editable at runtime)
+                if (PrefabUtility.IsPartOfPrefabAsset(target))
+                {
+                    Debug.LogError($"[OOJU] Cannot modify prefab asset directly: {target.name}. Please use a prefab instance in the scene instead.");
+                    return false;
+                }
+
+                // Ensure the object has a Collider component (required by XRGestureResponder)
+                var existingCollider = target.GetComponent<Collider>();
+                if (existingCollider == null)
+                {
+                    Debug.Log($"[OOJU] No collider found on {target.name}, attempting to add one");
+                    
+                    // Try to add an appropriate collider based on the object
+                    var meshRenderer = target.GetComponent<MeshRenderer>();
+                    var meshFilter = target.GetComponent<MeshFilter>();
+                    
+                    if (meshRenderer != null && meshFilter != null && meshFilter.sharedMesh != null)
+                    {
+                        // Add MeshCollider for objects with mesh
+                        var meshCollider = target.AddComponent<MeshCollider>();
+                        meshCollider.convex = true; // Required for trigger detection
+                        Debug.Log($"[OOJU] Added MeshCollider to {target.name}");
+                    }
+                    else
+                    {
+                        // Add BoxCollider as fallback
+                        var boxCollider = target.AddComponent<BoxCollider>();
+                        Debug.Log($"[OOJU] Added BoxCollider to {target.name}");
+                    }
+                }
+                else
+                {
+                    Debug.Log($"[OOJU] Found existing collider: {existingCollider.GetType().Name} on {target.name}");
+                }
+
+                // Add XRGestureResponder component if not present
+                var responder = target.GetComponent<OOJUPlugin.XRGestureResponder>();
+                Debug.Log($"[OOJU] Existing responder: {(responder != null ? "Found" : "Not found")}");
+                
+                if (responder == null)
+                {
+                    try
+                    {
+                        responder = target.AddComponent<OOJUPlugin.XRGestureResponder>();
+                        Debug.Log($"[OOJU] Added XRGestureResponder component to {target.name}");
+                    }
+                    catch (System.Exception addEx)
+                    {
+                        Debug.LogError($"[OOJU] Failed to add XRGestureResponder component to {target.name}: {addEx.Message}");
+                        return false;
+                    }
+                }
+
+                if (responder == null)
+                {
+                    Debug.LogError($"[OOJU] Responder is still null after adding component to {target.name}");
+                    return false;
+                }
+
+                // Map selected gesture to interaction type  
+                Debug.Log($"[OOJU] Selected gesture: {selectedGesture}");
                 var gestureType = (OOJUPlugin.GestureType)((int)selectedGesture);
                 var effectType = GetInteractionTypeForGesture(selectedGesture);
+                Debug.Log($"[OOJU] Mapped to gestureType: {gestureType}, effectType: {effectType}");
 
                 // Add the gesture interaction
-                responder.AddGestureInteraction(gestureType, effectType);
+                try
+                {
+                    responder.AddGestureInteraction(gestureType, effectType);
+                    Debug.Log($"[OOJU] Successfully called AddGestureInteraction on {target.name}");
+                }
+                catch (System.Exception interactionEx)
+                {
+                    Debug.LogError($"[OOJU] Failed in AddGestureInteraction for {target.name}: {interactionEx.Message}\nStack trace: {interactionEx.StackTrace}");
+                    return false;
+                }
 
                 Debug.Log($"[OOJU] Added {GetGestureName(selectedGesture)} -> {GetEffectName(selectedGesture)} interaction to {target.name}");
                 return true;
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[OOJU] Failed to setup gesture interaction for {target.name}: {ex.Message}");
+                Debug.LogError($"[OOJU] Failed to setup gesture interaction for {(target != null ? target.name : "null target")}: {ex.Message}\nStack trace: {ex.StackTrace}");
                 return false;
             }
         }
@@ -3076,6 +3144,40 @@ namespace OOJUPlugin
                 case HandGesture.Tap: return "Infinite Rotation";
                 case HandGesture.Wave: return "Heartbeat";
                 default: return "Unknown";
+            }
+        }
+
+        private string GetDetailedEffectDescription(HandGesture gesture)
+        {
+            switch (gesture)
+            {
+                case HandGesture.PointToSelect:
+                    return "✨ Highlight Effect\n" +
+                           "The object will glow or change color when you point at it in XR. " +
+                           "Perfect for drawing attention to important objects or creating interactive UI elements.";
+                
+                case HandGesture.Pinch:
+                    return "🤏 Follow Hand Effect\n" +
+                           "The object will follow your hand movements when you pinch. " +
+                           "Great for grabbing and moving objects in virtual space, like picking up items or manipulating tools.";
+                
+                case HandGesture.OpenPalm:
+                    return "🖐️ Push Away Effect\n" +
+                           "The object will be pushed away from your hand when you show an open palm. " +
+                           "Useful for creating force-field effects or pushing objects away without touching them.";
+                
+                case HandGesture.Tap:
+                    return "👉 Infinite Rotation Effect\n" +
+                           "The object will start spinning continuously when you tap it. " +
+                           "Perfect for creating spinning decorations, rotating platforms, or animated elements.";
+                
+                case HandGesture.Wave:
+                    return "👋 Heartbeat Effect\n" +
+                           "The object will pulse with a heartbeat-like rhythm when you wave at it. " +
+                           "Great for creating lively, breathing effects or indicating that an object is alive or active.";
+                
+                default:
+                    return "Unknown effect";
             }
         }
     }

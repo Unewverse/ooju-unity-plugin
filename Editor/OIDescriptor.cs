@@ -18,7 +18,7 @@ namespace OOJUPlugin
             try
             {
                 // Get all objects in the scene
-                var allObjects = GameObject.FindObjectsOfType<GameObject>();
+                var allObjects = GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
                 var sceneInfo = new StringBuilder();
                 
                 sceneInfo.AppendLine("Unity Scene Analysis:");

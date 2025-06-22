@@ -184,6 +184,12 @@ namespace OOJUPlugin
 
         public void RegisterResponder(XRGestureResponder responder)
         {
+            if (responder == null)
+            {
+                Debug.LogError("[XRGestureManager] Cannot register null responder");
+                return;
+            }
+
             if (!registeredResponders.Contains(responder))
             {
                 registeredResponders.Add(responder);
