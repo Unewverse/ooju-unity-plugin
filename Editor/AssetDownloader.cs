@@ -40,7 +40,6 @@ namespace OojiCustomPlugin
             if (!string.IsNullOrEmpty(filename) && !string.IsNullOrEmpty(assetId))
             {
                 EditorPrefs.SetString(AssetMetadataKey + filename, assetId);
-                Debug.Log($"Stored asset ID {assetId} for {filename}");
             }
         }
 
@@ -77,8 +76,6 @@ namespace OojiCustomPlugin
             AssetListResponse assetList;
             try
             {
-                Debug.Log($"API Response: {request.downloadHandler.text}");
-
                 string jsonResponse = "{ \"assets\": " + request.downloadHandler.text + "}";
                 assetList = JsonUtility.FromJson<AssetListResponse>(jsonResponse);
 
@@ -141,11 +138,9 @@ namespace OojiCustomPlugin
             }
             if (string.IsNullOrEmpty(asset.filename))
             {
-                Debug.LogWarning($"Asset name is missing. Using fallback name for ID {asset.id}.");
                 asset.filename = "unnamed_asset";
             }
 
-            Debug.Log($"Checking asset: {assetsDirectory}");
             string assetPath = Path.Combine(assetsDirectory, asset.filename);
             bool needsDownload = true;
             
@@ -195,12 +190,7 @@ namespace OojiCustomPlugin
                 {
                     StoreAssetId(asset.filename, asset.id);
                 }
-                else
-                {
-                    Debug.LogWarning($"No asset ID provided for {asset.filename}");
-                }
                 
-                Debug.Log($"Asset downloaded: {asset.filename} with ID: {asset.id}");
                 onComplete?.Invoke(true);
             }
             catch (Exception ex)
@@ -219,7 +209,6 @@ namespace OojiCustomPlugin
                 if (DateTime.TryParse(lastSyncString, out DateTime result))
                 {
                     lastSyncTime = result;
-                    Debug.Log($"Loaded last sync time: {lastSyncTime}");
                 }
             }
         }

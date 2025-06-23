@@ -139,12 +139,10 @@ namespace OOJUPlugin
 
             if (NetworkUtility.HasValidStoredToken())
             {
-                Debug.Log("Loaded saved token.");
                 CheckAssets();
             }
             else
             {
-                Debug.Log("No valid token found.");
                 authToken = "";
                 userEmail = "";
             }
@@ -1004,7 +1002,7 @@ namespace OOJUPlugin
                 GUILayout.Space(2);
                 if (!showingGroundOptions)
                 {
-                    EditorGUILayout.LabelField("Add someone who can walk around and explore your world.", EditorStyles.miniLabel);
+                    EditorGUILayout.LabelField("Add a player who can walk around and explore your world.", EditorStyles.miniLabel);
                 }
                 GUILayout.Space(8);
                 
@@ -1625,8 +1623,6 @@ namespace OOJUPlugin
             if (string.IsNullOrEmpty(className))
                 return null;
                 
-            Debug.Log($"[OOJU] Searching for class type: {className}");
-                
             try
             {
                 // Force refresh and wait a bit more for compilation
@@ -1645,7 +1641,6 @@ namespace OOJUPlugin
                             var type = assembly.GetType(className);
                             if (type != null && type.IsSubclassOf(typeof(MonoBehaviour)))
                             {
-                                Debug.Log($"[OOJU] Found exact match: {type.FullName} in {assembly.FullName}");
                                 return type;
                             }
                         }
@@ -1664,7 +1659,6 @@ namespace OOJUPlugin
                             var type = types.FirstOrDefault(t => t.Name == className && t.IsSubclassOf(typeof(MonoBehaviour)));
                             if (type != null)
                             {
-                                Debug.Log($"[OOJU] Found by name: {type.FullName} in {assembly.FullName}");
                                 return type;
                             }
                         }
@@ -1687,32 +1681,15 @@ namespace OOJUPlugin
                         var type = types.FirstOrDefault(t => t.Name == className && t.IsSubclassOf(typeof(MonoBehaviour)));
                         if (type != null)
                         {
-                            Debug.Log($"[OOJU] Found in assembly: {type.FullName} in {assembly.FullName}");
                             return type;
                         }
                     }
                     catch { continue; }
                 }
-                
-                Debug.LogWarning($"[OOJU] Could not find type: {className}");
-                
-                // Debug: List all MonoBehaviour types in user assemblies
-                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    if (assembly.FullName.Contains("Assembly-CSharp"))
-                    {
-                        try
-                        {
-                            var types = assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(MonoBehaviour))).ToList();
-                            Debug.Log($"[OOJU] Available MonoBehaviour types in {assembly.FullName}: {string.Join(", ", types.Select(t => t.Name))}");
-                        }
-                        catch { }
-                    }
-                }
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[OOJU] Error searching for type {className}: {ex.Message}");
+                Debug.LogWarning($"Error searching for script type: {ex.Message}");
             }
             
             return null;
@@ -2210,18 +2187,10 @@ namespace OOJUPlugin
 
         private IEnumerator CheckAssetsCoroutine()
         {
-            Debug.Log($"[OOJU] Checking assets with token: {authToken?.Substring(0, Math.Min(10, authToken.Length))}...");
-            
             yield return NetworkUtility.GetExportableAssets(
                 authToken,
                 (assets) =>
                 {
-                    Debug.Log($"[OOJU] Successfully received {assets.Count} assets from server");
-                    foreach (var asset in assets.Take(3)) // Log first 3 assets for debugging
-                    {
-                        Debug.Log($"[OOJU] Asset: {asset.filename}, ID: {asset.id}, Type: {asset.content_type}");
-                    }
-                    
                     availableAssets = assets;
                     assetCount = assets.Count;
                     assetsAvailable = assetCount > 0;
@@ -2236,7 +2205,7 @@ namespace OOJUPlugin
                 },
                 (error) =>
                 {
-                    Debug.LogError($"[OOJU] Error checking assets: {error}");
+                    Debug.LogError($"Error checking assets: {error}");
                     downloadStatus = $"Error checking assets: {error}";
                     isCheckingAssets = false;
                     assetsAvailable = false;
@@ -2330,9 +2299,9 @@ namespace OOJUPlugin
                             }
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Debug.LogWarning($"[OOJU] Exception loading local image preview for {asset.filename}: {ex.Message}");
+                        // Silently handle image loading errors
                     }
                 }
             }
@@ -2377,9 +2346,9 @@ namespace OOJUPlugin
                             }
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Debug.LogWarning($"[OOJU] Exception generating model preview for {asset.filename}: {ex.Message}");
+                        // Silently handle model preview generation errors
                     }
                 }
             }
@@ -3151,7 +3120,6 @@ namespace OOJUPlugin
                 var asset = availableAssets.FirstOrDefault(a => a.id == assetId);
                 if (asset == null)
                 {
-                    Debug.LogWarning($"[OOJU] Asset with ID {assetId} not found");
                     failedCount++;
                     continue;
                 }
@@ -3174,12 +3142,10 @@ namespace OOJUPlugin
                 if (downloadSuccess)
                 {
                     downloadedCount++;
-                    Debug.Log($"[OOJU] Successfully downloaded: {fileName}");
                 }
                 else
                 {
                     failedCount++;
-                    Debug.LogError($"[OOJU] Failed to download: {fileName}");
                 }
                 
                 yield return new WaitForSeconds(0.1f); // Small delay between downloads
@@ -3255,15 +3221,12 @@ namespace OOJUPlugin
             var existingManager = FindFirstObjectByType<OOJUPlugin.XRGestureInteractionManager>();
             if (existingManager != null)
             {
-                Debug.Log("[OOJU] XRGestureInteractionManager already exists in scene");
                 return;
             }
 
             // Create XR Gesture Manager
             GameObject managerGO = new GameObject("XRGestureInteractionManager");
             managerGO.AddComponent<OOJUPlugin.XRGestureInteractionManager>();
-            
-            Debug.Log("[OOJU] Created XRGestureInteractionManager in scene");
         }
 
         private bool SetupGestureInteraction(GameObject target)
@@ -3273,23 +3236,20 @@ namespace OOJUPlugin
                 // Comprehensive null and validity checks
                 if (target == null)
                 {
-                    Debug.LogError("[OOJU] SetupGestureInteraction: target GameObject is null");
+                    Debug.LogError("SetupGestureInteraction: target GameObject is null");
                     return false;
                 }
 
                 if (!target)
                 {
-                    Debug.LogError("[OOJU] SetupGestureInteraction: target GameObject has been destroyed");
+                    Debug.LogError("SetupGestureInteraction: target GameObject has been destroyed");
                     return false;
                 }
-
-                Debug.Log($"[OOJU] Setting up gesture interaction for: {target.name}");
-                Debug.Log($"[OOJU] Target active: {target.activeInHierarchy}, prefab mode: {PrefabUtility.IsPartOfPrefabAsset(target)}");
 
                 // Check if object is part of a prefab asset (not editable at runtime)
                 if (PrefabUtility.IsPartOfPrefabAsset(target))
                 {
-                    Debug.LogError($"[OOJU] Cannot modify prefab asset directly: {target.name}. Please use a prefab instance in the scene instead.");
+                    Debug.LogError($"Cannot modify prefab asset directly: {target.name}. Please use a prefab instance in the scene instead.");
                     return false;
                 }
 
@@ -3297,8 +3257,6 @@ namespace OOJUPlugin
                 var existingCollider = target.GetComponent<Collider>();
                 if (existingCollider == null)
                 {
-                    Debug.Log($"[OOJU] No collider found on {target.name}, attempting to add one");
-                    
                     // Try to add an appropriate collider based on the object
                     var meshRenderer = target.GetComponent<MeshRenderer>();
                     var meshFilter = target.GetComponent<MeshFilter>();
@@ -3308,68 +3266,56 @@ namespace OOJUPlugin
                         // Add MeshCollider for objects with mesh
                         var meshCollider = target.AddComponent<MeshCollider>();
                         meshCollider.convex = true; // Required for trigger detection
-                        Debug.Log($"[OOJU] Added MeshCollider to {target.name}");
                     }
                     else
                     {
                         // Add BoxCollider as fallback
                         var boxCollider = target.AddComponent<BoxCollider>();
-                        Debug.Log($"[OOJU] Added BoxCollider to {target.name}");
                     }
-                }
-                else
-                {
-                    Debug.Log($"[OOJU] Found existing collider: {existingCollider.GetType().Name} on {target.name}");
                 }
 
                 // Add XRGestureResponder component if not present
                 var responder = target.GetComponent<OOJUPlugin.XRGestureResponder>();
-                Debug.Log($"[OOJU] Existing responder: {(responder != null ? "Found" : "Not found")}");
                 
                 if (responder == null)
                 {
                     try
                     {
                         responder = target.AddComponent<OOJUPlugin.XRGestureResponder>();
-                        Debug.Log($"[OOJU] Added XRGestureResponder component to {target.name}");
                     }
                     catch (System.Exception addEx)
                     {
-                        Debug.LogError($"[OOJU] Failed to add XRGestureResponder component to {target.name}: {addEx.Message}");
+                        Debug.LogError($"Failed to add XRGestureResponder component to {target.name}: {addEx.Message}");
                         return false;
                     }
                 }
 
                 if (responder == null)
                 {
-                    Debug.LogError($"[OOJU] Responder is still null after adding component to {target.name}");
+                    Debug.LogError($"Responder is still null after adding component to {target.name}");
                     return false;
                 }
 
                 // Map selected gesture to interaction type  
-                Debug.Log($"[OOJU] Selected gesture: {selectedGesture}");
                 var gestureType = (OOJUPlugin.GestureType)((int)selectedGesture);
                 var effectType = GetInteractionTypeForGesture(selectedGesture);
-                Debug.Log($"[OOJU] Mapped to gestureType: {gestureType}, effectType: {effectType}");
 
                 // Add the gesture interaction
                 try
                 {
                     responder.AddGestureInteraction(gestureType, effectType);
-                    Debug.Log($"[OOJU] Successfully called AddGestureInteraction on {target.name}");
                 }
                 catch (System.Exception interactionEx)
                 {
-                    Debug.LogError($"[OOJU] Failed in AddGestureInteraction for {target.name}: {interactionEx.Message}\nStack trace: {interactionEx.StackTrace}");
+                    Debug.LogError($"Failed in AddGestureInteraction for {target.name}: {interactionEx.Message}");
                     return false;
                 }
 
-                Debug.Log($"[OOJU] Added {GetGestureName(selectedGesture)} -> {GetEffectName(selectedGesture)} interaction to {target.name}");
                 return true;
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[OOJU] Failed to setup gesture interaction for {(target != null ? target.name : "null target")}: {ex.Message}\nStack trace: {ex.StackTrace}");
+                Debug.LogError($"Failed to setup gesture interaction for {(target != null ? target.name : "null target")}: {ex.Message}");
                 return false;
             }
         }

@@ -28,7 +28,6 @@ namespace OojiCustomPlugin
                 device_type = "unity"
             };
             string jsonPayload = JsonUtility.ToJson(payload);
-            Debug.Log($"Sending login payload: {jsonPayload}");
 
             UnityWebRequest request = new UnityWebRequest(BackendUrl + "/token", "POST");
             byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
@@ -43,7 +42,6 @@ namespace OojiCustomPlugin
                 try
                 {
                     var responseText = request.downloadHandler.text;
-                    Debug.Log($"Login response: {responseText}");
                     
                     var responseData = JsonUtility.FromJson<LoginResponse>(responseText);
 
@@ -127,7 +125,6 @@ namespace OojiCustomPlugin
             if (!string.IsNullOrEmpty(token))
             {
                 EditorPrefs.SetString("AuthToken", token);
-                Debug.Log("Token stored successfully");
             }
         }
 
@@ -141,7 +138,6 @@ namespace OojiCustomPlugin
             if (!string.IsNullOrEmpty(email))
             {
                 EditorPrefs.SetString("UserEmail", email);
-                Debug.Log("User email stored successfully");
             }
         }
 
@@ -162,7 +158,6 @@ namespace OojiCustomPlugin
             EditorPrefs.DeleteKey("TokenExpiresAt");
             EditorPrefs.DeleteKey("UserId");
             EditorPrefs.DeleteKey("UserEmail");
-            Debug.Log("Token cleared");
         }
 
         public static void SetBackendUrl(string url)
@@ -170,7 +165,6 @@ namespace OojiCustomPlugin
             if (!string.IsNullOrEmpty(url))
             {
                 BackendUrl = url;
-                Debug.Log($"Backend URL set to: {BackendUrl}");
             }
         }
 
@@ -216,16 +210,12 @@ namespace OojiCustomPlugin
             UnityWebRequest request = null;
             string apiUrl = BackendUrl + "/assets";
             
-            Debug.Log($"[OOJU] Making API request to: {apiUrl}");
-            Debug.Log($"[OOJU] Using token: {token?.Substring(0, Math.Min(10, token?.Length ?? 0))}...");
-            
             try {
                 request = UnityWebRequest.Get(apiUrl);
                 request.SetRequestHeader("Authorization", $"Bearer {token}");
-                Debug.Log($"[OOJU] Request headers set successfully");
             }
             catch (Exception ex) {
-                Debug.LogError($"[OOJU] Error creating web request: {ex.Message}");
+                Debug.LogError($"Error creating web request: {ex.Message}");
                 onFailure?.Invoke("Error creating web request: " + ex.Message);
                 yield break;
             }
@@ -233,16 +223,11 @@ namespace OojiCustomPlugin
             yield return request.SendWebRequest();
 
             try {
-                Debug.Log($"[OOJU] Request completed with result: {request.result}");
-                Debug.Log($"[OOJU] Response code: {request.responseCode}");
-                
                 if (request.result == UnityWebRequest.Result.Success)
                 {
                     string responseText = request.downloadHandler.text;
-                    Debug.Log($"[OOJU] Raw response: {responseText}");
                     
                     if (string.IsNullOrWhiteSpace(responseText)) {
-                        Debug.LogWarning("[OOJU] Empty response from server");
                         onSuccess?.Invoke(new List<ExportableAsset>());
                         yield break;
                     }
@@ -258,23 +243,14 @@ namespace OojiCustomPlugin
                         jsonResponse = "{ \"assets\": " + jsonResponse + "}";
                     }
                     
-                    Debug.Log($"[OOJU] Formatted JSON for parsing: {jsonResponse}");
-                    
                     ExportableAssetsResponse response = JsonUtility.FromJson<ExportableAssetsResponse>(jsonResponse);
                     
                     if (response != null && response.assets != null)
                     {
-                        Debug.Log($"[OOJU] Successfully parsed {response.assets.Length} assets");
-                        if (response.assets.Length > 0)
-                        {
-                            Debug.Log($"[OOJU] First asset: id={response.assets[0].id}, name={response.assets[0].filename}, type={response.assets[0].content_type}");
-                        }
-                        
                         onSuccess?.Invoke(new List<ExportableAsset>(response.assets));
                     }
                     else
                     {
-                        Debug.LogWarning("[OOJU] No assets found in response or failed to parse");
                         onSuccess?.Invoke(new List<ExportableAsset>());
                     }
                 }
@@ -285,14 +261,13 @@ namespace OojiCustomPlugin
                     {
                         errorDetails += $", Response: {request.downloadHandler.text}";
                     }
-                    Debug.LogError($"[OOJU] Failed to get assets: {errorDetails}");
+                    Debug.LogError($"Failed to get assets: {errorDetails}");
                     onFailure?.Invoke($"API request failed: {errorDetails}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[OOJU] Error processing assets response: {ex.Message}");
-                Debug.LogException(ex);
+                Debug.LogError($"Error processing assets response: {ex.Message}");
                 onFailure?.Invoke("Error processing assets: " + ex.Message);
             }
         }
@@ -321,7 +296,6 @@ namespace OojiCustomPlugin
 
             // Parse the response outside of try-catch to avoid yield in try block
             string responseJson = urlRequest.downloadHandler.text;
-            Debug.Log($"Download response: {responseJson}");
             
             string presignedUrl = "";
             string responseAssetId = "";
@@ -363,13 +337,11 @@ namespace OojiCustomPlugin
             {
                 // If response included the asset_id
                 AssetDownloader.StoreAssetId(fileName, responseAssetId);
-                Debug.Log($"Stored asset ID {responseAssetId} for file {fileName}");
             }
             else
             {
                 // If the backend didn't return asset_id but we already know it from the request
                 AssetDownloader.StoreAssetId(fileName, assetId);
-                Debug.Log($"Stored provided asset ID {assetId} for file {fileName}");
             }
 
             // Now download the actual file
@@ -379,7 +351,6 @@ namespace OojiCustomPlugin
 
             if (fileRequest.result == UnityWebRequest.Result.Success)
             {
-                Debug.Log("File downloaded successfully to " + destinationPath);
                 onComplete?.Invoke(true);
             }
             else
