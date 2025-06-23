@@ -523,7 +523,7 @@ namespace OOJUPlugin
                 GUILayout.Space(16);
                 DrawHandGestureSection(buttonWidth);
                 GUILayout.Space(16);
-                DrawExplorerSection(buttonWidth);
+                DrawPlayerSection(buttonWidth);
             }
             catch (System.Exception e)
             {
@@ -982,8 +982,8 @@ namespace OOJUPlugin
             }
         }
 
-        // Draws the Explorer section
-        private void DrawExplorerSection(float buttonWidth)
+        // Draws the Player section
+        private void DrawPlayerSection(float buttonWidth)
         {
             try
             {
@@ -993,7 +993,7 @@ namespace OOJUPlugin
                 GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
                 sectionTitleStyle.fontSize = 14;
                 sectionTitleStyle.normal.textColor = SectionTitleColor;
-                EditorGUILayout.LabelField("Explorer", sectionTitleStyle);
+                EditorGUILayout.LabelField("Player", sectionTitleStyle);
                 EditorGUILayout.EndHorizontal();
                 GUILayout.Space(2);
                 EditorGUILayout.LabelField("Add someone who can walk around and explore your world.", EditorStyles.miniLabel);
@@ -1003,8 +1003,8 @@ namespace OOJUPlugin
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"Error in Explorer section: {e.Message}");
-                EditorGUILayout.HelpBox("Error displaying Explorer section", MessageType.Error);
+                Debug.LogError($"Error in Player section: {e.Message}");
+                EditorGUILayout.HelpBox("Error displaying Player section", MessageType.Error);
             }
         }
 
@@ -1018,7 +1018,7 @@ namespace OOJUPlugin
             Color prevContent = GUI.contentColor;
             GUI.backgroundColor = ButtonBgColor;
             GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Add Explorer", "Add someone to walk around and see your world."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+            if (GUILayout.Button(new GUIContent("Add Player", "Add someone to walk around and see your world."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
             {
                 AddFirstPersonPlayerToScene();
             }
