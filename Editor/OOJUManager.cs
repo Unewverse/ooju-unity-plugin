@@ -84,6 +84,12 @@ namespace OOJUPlugin
         private string lastGeneratedClassName = "";
         private Dictionary<string, string> lastGeneratedSuggestionPerObject = new Dictionary<string, string>();
 
+        // Player section state management
+        private bool showingGroundOptions = false;
+        private bool isSelectingIndividualObjects = false;
+        private List<GameObject> availableGroundObjects = new List<GameObject>();
+        private int currentObjectIndex = 0;
+
         // Hand Gesture variables
         private enum HandGesture
         {
@@ -996,7 +1002,10 @@ namespace OOJUPlugin
                 EditorGUILayout.LabelField("Player", sectionTitleStyle);
                 EditorGUILayout.EndHorizontal();
                 GUILayout.Space(2);
-                EditorGUILayout.LabelField("Add someone who can walk around and explore your world.", EditorStyles.miniLabel);
+                if (!showingGroundOptions)
+                {
+                    EditorGUILayout.LabelField("Add someone who can walk around and explore your world.", EditorStyles.miniLabel);
+                }
                 GUILayout.Space(8);
                 
                 DrawAddPlayerSection(buttonWidth);
@@ -1011,53 +1020,102 @@ namespace OOJUPlugin
         // Draws the Add Player section (UI + logic)
         private void DrawAddPlayerSection(float buttonWidth)
         {
-            // Add First-person Player button
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            Color prevBg = GUI.backgroundColor;
-            Color prevContent = GUI.contentColor;
-            GUI.backgroundColor = ButtonBgColor;
-            GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Add Player", "Add someone to walk around and see your world."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+            if (!showingGroundOptions)
             {
-                AddFirstPersonPlayerToScene();
+                // Main Add Player button
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                Color prevBg = GUI.backgroundColor;
+                Color prevContent = GUI.contentColor;
+                GUI.backgroundColor = ButtonBgColor;
+                GUI.contentColor = ButtonTextColor;
+                if (GUILayout.Button(new GUIContent("Add Player", "Add someone to walk around and explore your world."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+                {
+                    AddFirstPersonPlayerToScene();
+                }
+                GUI.backgroundColor = prevBg;
+                GUI.contentColor = prevContent;
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
             }
-            GUI.backgroundColor = prevBg;
-            GUI.contentColor = prevContent;
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-            GUILayout.Space(16);
-            // Add Ground button
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            prevBg = GUI.backgroundColor;
-            prevContent = GUI.contentColor;
-            GUI.backgroundColor = ButtonBgColor;
-            GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Add Floor", "Add a floor to walk on."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+            else
             {
-                AddGroundToScene();
+                DrawGroundOptionsSection(buttonWidth);
             }
-            GUI.backgroundColor = prevBg;
-            GUI.contentColor = prevContent;
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-            GUILayout.Space(6);
-            // Set Selected as Ground button
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            prevBg = GUI.backgroundColor;
-            prevContent = GUI.contentColor;
-            GUI.backgroundColor = ButtonBgColor;
-            GUI.contentColor = ButtonTextColor;
-            if (GUILayout.Button(new GUIContent("Make This a Floor", "Turn selected objects into something you can walk on."), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+        }
+
+        // Draws the ground options section after player creation
+        private void DrawGroundOptionsSection(float buttonWidth)
+        {
+            if (!isSelectingIndividualObjects)
             {
-                SetSelectedAsGround();
+                // Ground options header
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label(EditorGUIUtility.IconContent("d_Terrain Icon"), GUILayout.Width(22), GUILayout.Height(22));
+                GUIStyle sectionTitleStyle = new GUIStyle(EditorStyles.boldLabel);
+                sectionTitleStyle.fontSize = 14;
+                sectionTitleStyle.normal.textColor = SectionTitleColor;
+                EditorGUILayout.LabelField("What should your player walk on?", sectionTitleStyle);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(2);
+                EditorGUILayout.LabelField("Choose one of these options to prevent your player from falling endlessly:", EditorStyles.miniLabel);
+                GUILayout.Space(12);
+
+                // Option 1: Create New Ground
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                Color prevBg = GUI.backgroundColor;
+                Color prevContent = GUI.contentColor;
+                GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f); // Green for recommended option
+                GUI.contentColor = ButtonTextColor;
+                if (GUILayout.Button(new GUIContent("Create New Ground", "Add a large floor for your player to walk on (Recommended)"), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
+                {
+                    AddGroundToScene();
+                    showingGroundOptions = false;
+                }
+                GUI.backgroundColor = prevBg;
+                GUI.contentColor = prevContent;
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(8);
+
+                // Option 2: Choose Existing Object
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUI.backgroundColor = ButtonBgColor;
+                GUI.contentColor = ButtonTextColor;
+                if (GUILayout.Button(new GUIContent("Choose Existing Object", "Turn something already in your scene into walkable ground"), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+                {
+                    StartIndividualObjectSelection();
+                }
+                GUI.backgroundColor = prevBg;
+                GUI.contentColor = prevContent;
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(8);
+
+                // Option 3: Skip
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                GUI.backgroundColor = new Color(0.6f, 0.6f, 0.6f); // Gray for skip option
+                GUI.contentColor = ButtonTextColor;
+                if (GUILayout.Button(new GUIContent("Skip for Now", "I'll add ground later (Player will fall unless you have ground)"), GUILayout.Width(buttonWidth), GUILayout.Height(28)))
+                {
+                    showingGroundOptions = false;
+                    EditorUtility.DisplayDialog("No Ground Added", 
+                        "No problem! You can always add ground later.\n\n" +
+                        "Remember: Without ground, your player will fall endlessly when you press Play.\n\n" +
+                        "Tip: You can always come back to this Player section to add ground later.", "Got it");
+                }
+                GUI.backgroundColor = prevBg;
+                GUI.contentColor = prevContent;
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
             }
-            GUI.backgroundColor = prevBg;
-            GUI.contentColor = prevContent;
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
+            else
+            {
+                DrawIndividualObjectSelection();
+            }
         }
 
         // Helper: Add a large ground cube at y=0
@@ -1072,10 +1130,216 @@ namespace OOJUPlugin
             if (col == null) ground.AddComponent<BoxCollider>();
             Selection.activeGameObject = ground;
             EditorGUIUtility.PingObject(ground);
-            EditorUtility.DisplayDialog("Ground Added", "A large ground cube has been added at y=0.", "OK");
+            EditorUtility.DisplayDialog("Ground Added", 
+                "Perfect! A large ground has been created for your player to walk on.\n\n" +
+                "Your player is now ready to explore! Press Play to try it out.\n\n" +
+                "Controls: WASD to move, Space to jump, Mouse to look around.", "Awesome!");
         }
 
-        // Helper: Add a MeshCollider to selected objects and set their layer to Default
+        // Start the individual object selection process
+        private void StartIndividualObjectSelection()
+        {
+            // Find all GameObjects in the scene that could be used as ground
+            availableGroundObjects.Clear();
+            
+            // Get all root GameObjects in the active scene
+            GameObject[] allObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+            
+            foreach (GameObject rootObj in allObjects)
+            {
+                // Add root object and all its children
+                AddObjectAndChildren(rootObj, availableGroundObjects);
+            }
+            
+            // Filter out objects that are clearly not suitable for ground
+            availableGroundObjects.RemoveAll(obj => 
+                obj == null || 
+                obj.name.Contains("Player") || 
+                obj.name.Contains("Camera") ||
+                obj.name.Contains("Light") ||
+                obj.GetComponent<Camera>() != null ||
+                obj.GetComponent<Light>() != null
+            );
+
+            if (availableGroundObjects.Count == 0)
+            {
+                EditorUtility.DisplayDialog("No Objects Found", 
+                    "No suitable objects found in your scene to use as ground.\n\n" +
+                    "Try adding some objects to your scene first, or choose 'Create New Ground' instead.", "OK");
+                return;
+            }
+
+            isSelectingIndividualObjects = true;
+            currentObjectIndex = 0;
+        }
+
+        // Recursively add object and its children to the list
+        private void AddObjectAndChildren(GameObject obj, List<GameObject> list)
+        {
+            if (obj != null)
+            {
+                list.Add(obj);
+                
+                for (int i = 0; i < obj.transform.childCount; i++)
+                {
+                    Transform child = obj.transform.GetChild(i);
+                    if (child != null && child.gameObject != null)
+                    {
+                        AddObjectAndChildren(child.gameObject, list);
+                    }
+                }
+            }
+        }
+
+        // Draw the individual object selection UI
+        private void DrawIndividualObjectSelection()
+        {
+            if (availableGroundObjects.Count == 0 || currentObjectIndex >= availableGroundObjects.Count)
+            {
+                // No more objects or invalid index
+                isSelectingIndividualObjects = false;
+                showingGroundOptions = false;
+                EditorUtility.DisplayDialog("Selection Complete", "No more objects to review.", "OK");
+                return;
+            }
+
+            GameObject currentObj = availableGroundObjects[currentObjectIndex];
+            if (currentObj == null)
+            {
+                // Skip null objects
+                currentObjectIndex++;
+                return;
+            }
+
+            // Header
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label(EditorGUIUtility.IconContent("d_GameObject Icon"), GUILayout.Width(22), GUILayout.Height(22));
+            GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel);
+            titleStyle.fontSize = 14;
+            titleStyle.normal.textColor = SectionTitleColor;
+            EditorGUILayout.LabelField("Should this be walkable ground?", titleStyle);
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(2);
+            
+            EditorGUILayout.LabelField($"Reviewing object {currentObjectIndex + 1} of {availableGroundObjects.Count}", EditorStyles.miniLabel);
+            GUILayout.Space(8);
+
+            // Show current object
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Object:", EditorStyles.boldLabel, GUILayout.Width(60));
+            EditorGUILayout.ObjectField(currentObj, typeof(GameObject), true);
+            EditorGUILayout.EndHorizontal();
+            GUILayout.Space(8);
+
+            // Highlight the object in scene
+            if (GUILayout.Button(new GUIContent("Highlight in Scene", "Show this object in the Scene view"), GUILayout.Height(24)))
+            {
+                Selection.activeGameObject = currentObj;
+                EditorGUIUtility.PingObject(currentObj);
+                SceneView.FrameLastActiveSceneView();
+            }
+            GUILayout.Space(12);
+
+            // Decision buttons
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            
+            Color prevBg = GUI.backgroundColor;
+            Color prevContent = GUI.contentColor;
+            
+            // Yes button (Green)
+            GUI.backgroundColor = new Color(0.4f, 0.8f, 0.4f);
+            GUI.contentColor = ButtonTextColor;
+            if (GUILayout.Button(new GUIContent("✓ Yes, Use This", "Make this object walkable ground"), GUILayout.Width(120), GUILayout.Height(32)))
+            {
+                SetObjectAsGround(currentObj);
+                currentObjectIndex++;
+                if (currentObjectIndex >= availableGroundObjects.Count)
+                {
+                    FinishObjectSelection();
+                }
+            }
+            
+            GUILayout.Space(8);
+            
+            // No button (Yellow)
+            GUI.backgroundColor = new Color(0.8f, 0.8f, 0.4f);
+            if (GUILayout.Button(new GUIContent("→ No, Next Object", "Skip this object and see the next one"), GUILayout.Width(120), GUILayout.Height(32)))
+            {
+                currentObjectIndex++;
+                if (currentObjectIndex >= availableGroundObjects.Count)
+                {
+                    FinishObjectSelection();
+                }
+            }
+            
+            GUILayout.Space(8);
+            
+            // Cancel button (Gray)
+            GUI.backgroundColor = new Color(0.6f, 0.6f, 0.6f);
+            if (GUILayout.Button(new GUIContent("✕ Cancel", "Go back to ground options"), GUILayout.Width(80), GUILayout.Height(32)))
+            {
+                isSelectingIndividualObjects = false;
+                currentObjectIndex = 0;
+            }
+            
+            GUILayout.Space(8);
+            
+            // Done button (Blue) - allows user to finish early
+            GUI.backgroundColor = new Color(0.4f, 0.6f, 0.8f);
+            if (GUILayout.Button(new GUIContent("✓ Done", "I'm satisfied with the ground I've set up"), GUILayout.Width(80), GUILayout.Height(32)))
+            {
+                FinishObjectSelection();
+            }
+            
+            GUI.backgroundColor = prevBg;
+            GUI.contentColor = prevContent;
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        // Set a specific object as ground
+        private void SetObjectAsGround(GameObject obj)
+        {
+            if (obj == null) return;
+            
+            // Add collider if not present
+            if (obj.GetComponent<Collider>() == null)
+            {
+                // Try to determine the best collider type
+                var meshRenderer = obj.GetComponent<MeshRenderer>();
+                var meshFilter = obj.GetComponent<MeshFilter>();
+                
+                if (meshRenderer != null && meshFilter != null && meshFilter.sharedMesh != null)
+                {
+                    obj.AddComponent<MeshCollider>();
+                }
+                else
+                {
+                    obj.AddComponent<BoxCollider>();
+                }
+            }
+            
+            obj.layer = LayerMask.NameToLayer("Default");
+            
+            EditorUtility.DisplayDialog("Ground Set!", 
+                $"Great! '{obj.name}' is now walkable ground.\n\n" +
+                "Would you like to continue reviewing other objects, or are you done?", "Continue");
+        }
+
+        // Finish the object selection process
+        private void FinishObjectSelection()
+        {
+            isSelectingIndividualObjects = false;
+            showingGroundOptions = false;
+            
+            EditorUtility.DisplayDialog("Selection Complete", 
+                "You've reviewed all available objects.\n\n" +
+                "Your player is ready! Press Play to test it out.\n\n" +
+                "Controls: WASD to move, Space to jump, Mouse to look around.", "Great!");
+        }
+
+        // Helper: Add a MeshCollider to selected objects and set their layer to Default (Legacy function kept for compatibility)
         private void SetSelectedAsGround()
         {
             var selected = Selection.gameObjects;
@@ -1178,7 +1442,15 @@ namespace OOJUPlugin
             player.AddComponent(scriptType);
             Selection.activeGameObject = player;
             EditorGUIUtility.PingObject(player);
-            EditorUtility.DisplayDialog("First-person Player", "First-person player has been added to the scene!\nUse WASD or arrow keys and Space to jump in Play mode.", "OK");
+            
+            // Show ground options after player creation
+            showingGroundOptions = true;
+            isSelectingIndividualObjects = false;
+            currentObjectIndex = 0;
+            
+            EditorUtility.DisplayDialog("Player Added!", 
+                "Great! Your player has been added to the scene.\n\n" +
+                "Now let's set up something for them to walk on so they don't fall forever.", "Continue");
         }
 
         // Returns the code for a simple FirstPersonPlayer script (WASD/arrow keys + Space to jump)
