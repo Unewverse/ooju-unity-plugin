@@ -507,34 +507,13 @@ namespace OOJUPlugin
             EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true));
             GUILayout.Space(20);
 
-            // Make Things Interactive section
-            EditorGUILayout.BeginVertical();
-            try
-            {
-                // Section title
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Label(EditorGUIUtility.IconContent("d_UnityEditor.SceneHierarchyWindow"), GUILayout.Width(22), GUILayout.Height(22));
-                GUIStyle mainTitleStyle = new GUIStyle(EditorStyles.boldLabel);
-                mainTitleStyle.fontSize = 18;
-                mainTitleStyle.normal.textColor = SectionTitleColor;
-                EditorGUILayout.LabelField("Make Things Interactive", mainTitleStyle);
-                EditorGUILayout.EndHorizontal();
-                GUILayout.Space(10);
-                
-                DrawSentenceToInteractionSection(buttonWidth);
-                GUILayout.Space(16);
-                DrawDescriptionSection(buttonWidth);
-                GUILayout.Space(16);
-                DrawHandGestureSection(buttonWidth);
-                GUILayout.Space(16);
-                DrawPlayerSection(buttonWidth);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"Error in Make Things Interactive section: {e.Message}");
-                EditorGUILayout.HelpBox("Error displaying interactive features", MessageType.Error);
-            }
-            EditorGUILayout.EndVertical();
+            DrawSentenceToInteractionSection(buttonWidth);
+            GUILayout.Space(16);
+            DrawDescriptionSection(buttonWidth);
+            GUILayout.Space(16);
+            DrawHandGestureSection(buttonWidth);
+            GUILayout.Space(16);
+            DrawPlayerSection(buttonWidth);
 
 
 
@@ -918,7 +897,7 @@ namespace OOJUPlugin
                 }
                 
                 EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Selected Object:", EditorStyles.boldLabel, GUILayout.Width(100));
+                EditorGUILayout.LabelField("Selected Object:", EditorStyles.boldLabel, GUILayout.Width(120));
                 EditorGUILayout.ObjectField(selectedObj, typeof(GameObject), true);
                 EditorGUILayout.EndHorizontal();
                 GUILayout.Space(8);
