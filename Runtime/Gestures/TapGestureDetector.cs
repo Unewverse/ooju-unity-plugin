@@ -5,13 +5,15 @@ namespace OOJUPlugin
     public class TapGestureDetector : MonoBehaviour, IGestureDetector
     {
         [Header("Tap Detection Settings")]
-        [SerializeField] private float tapVelocityThreshold = 1.5f;
-        [SerializeField] private float tapDistanceThreshold = 0.05f;
+        [SerializeField] private float tapVelocityThreshold = 0.1f;
+        [SerializeField] private float tapDistanceThreshold = 0.01f;
         [SerializeField] private float tapDuration = 0.2f;
         [SerializeField] private float cooldownTime = 0.3f;
         
         [Header("Debug")]
-        [SerializeField] private bool showDebugInfo = false;
+        [SerializeField] private bool showDebugInfo = true;
+        [SerializeField] private bool showRealtimeHandData = true;
+        [SerializeField] private bool showMovementDebug = true;
 
         private object leftHand;
         private object rightHand;
@@ -24,6 +26,10 @@ namespace OOJUPlugin
         private Vector3 currentPosition = Vector3.zero;
         private bool isLeftHandActive = false;
         private bool isMetaXRAvailable = false;
+        
+        // Debug timing
+        private float lastDebugTime = 0f;
+        private float debugInterval = 1f; // Debug output every 1 second
 
         public GestureType Type => GestureType.Tap;
         public bool IsDetected => currentlyDetected;
@@ -51,11 +57,17 @@ namespace OOJUPlugin
             {
                 leftHand = XRGestureInteractionManager.Instance.LeftHand;
                 rightHand = XRGestureInteractionManager.Instance.RightHand;
+                
+                Debug.Log($"[TapGestureDetector] Hands from manager - Left: {leftHand != null}, Right: {rightHand != null}");
             }
 
             if (leftHand == null && rightHand == null)
             {
                 Debug.LogWarning("[TapGestureDetector] No OVR Hands found for tap detection");
+            }
+            else
+            {
+                Debug.Log($"[TapGestureDetector] Tap detection initialized successfully");
             }
 
             // Initialize positions
@@ -65,16 +77,36 @@ namespace OOJUPlugin
 
         private bool CheckMetaXRAvailability()
         {
-            // Try to find OVRHand type using reflection
+            // Try to find OVRHand type using more robust search
             try
             {
-                var ovrHandType = System.Type.GetType("OVRHand");
-                return ovrHandType != null;
+                // Search through all loaded assemblies
+                foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    try
+                    {
+                        var types = assembly.GetTypes();
+                        foreach (var type in types)
+                        {
+                            if (type.Name == "OVRHand" || type.FullName.EndsWith(".OVRHand"))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    catch (System.Exception)
+                    {
+                        // Skip assemblies that can't be loaded
+                        continue;
+                    }
+                }
             }
             catch
             {
                 return false;
             }
+            
+            return false;
         }
 
         public void UpdateDetection()
@@ -83,6 +115,26 @@ namespace OOJUPlugin
 
             float deltaTime = Time.deltaTime;
             if (deltaTime <= 0f) return;
+
+            // Real-time hand data debugging for VR
+            if (showRealtimeHandData && Time.time > lastDebugTime + debugInterval)
+            {
+                if (leftHand != null)
+                {
+                    Vector3 leftPos = GetTapPosition(leftHand);
+                    bool leftTracked = IsHandTracked(leftHand);
+                    Debug.Log($"[TapDetector] Left Hand - Pos: {leftPos}, Tracked: {leftTracked}");
+                }
+                
+                if (rightHand != null)
+                {
+                    Vector3 rightPos = GetTapPosition(rightHand);
+                    bool rightTracked = IsHandTracked(rightHand);
+                    Debug.Log($"[TapDetector] Right Hand - Pos: {rightPos}, Tracked: {rightTracked}");
+                }
+                
+                lastDebugTime = Time.time;
+            }
 
             // Check left hand
             if (leftHand != null && IsHandTracked(leftHand))
@@ -106,31 +158,55 @@ namespace OOJUPlugin
 
         private bool IsHandTracked(object hand)
         {
-            if (!isMetaXRAvailable || hand == null) return false;
+            if (hand == null) return false;
             
             try
             {
-                // Use reflection to check IsTracked property
+                // First try standard IsTracked property
                 var handType = hand.GetType();
                 var isTrackedProperty = handType.GetProperty("IsTracked");
                 if (isTrackedProperty != null)
                 {
                     return (bool)isTrackedProperty.GetValue(hand);
                 }
+                
+                // For Building Blocks, check if transform is moving (indicating tracking)
+                var handComponent = hand as MonoBehaviour;
+                if (handComponent != null)
+                {
+                    // If we have a valid transform position, consider it tracked
+                    return handComponent.transform.position != Vector3.zero;
+                }
             }
             catch
             {
-                // Ignore reflection errors
+                // If reflection fails, assume tracked if hand exists
+                return true;
             }
             
-            return false;
+            return true; // Default to true if hand exists
         }
 
         private void CheckHandForTap(object hand, ref Vector3 lastPos, ref float lastTapTime, bool isLeft)
         {
             Vector3 currentPos = GetTapPosition(hand);
-            Vector3 velocity = (currentPos - lastPos) / Time.deltaTime;
-            float velocityMagnitude = velocity.magnitude;
+            
+            // Skip if position is zero (not tracked)
+            if (currentPos == Vector3.zero)
+            {
+                lastPos = currentPos;
+                return;
+            }
+            
+            Vector3 movement = currentPos - lastPos;
+            float distance = movement.magnitude;
+            float velocityMagnitude = distance / Time.deltaTime;
+
+            // Movement debugging
+            if (showMovementDebug && distance > 0.001f) // Show any movement above 1mm
+            {
+                Debug.Log($"[TapDetector] {(isLeft ? "Left" : "Right")} hand movement - Distance: {distance:F4}m, Velocity: {velocityMagnitude:F3}m/s, Threshold: {tapVelocityThreshold}m/s");
+            }
 
             // Check if in cooldown
             if (Time.time < lastTapTime + cooldownTime)
@@ -139,26 +215,14 @@ namespace OOJUPlugin
                 return;
             }
 
-            // Detect tap: high velocity followed by near-stop
-            bool isFastMovement = velocityMagnitude > tapVelocityThreshold;
-            bool isWithinTapDistance = Vector3.Distance(currentPos, lastPos) < tapDistanceThreshold;
-
-            if (isFastMovement && !currentlyDetected)
+            // Very simple tap detection: any movement above very low threshold
+            if (distance > tapDistanceThreshold || velocityMagnitude > tapVelocityThreshold)
             {
-                // Start monitoring for tap completion
-                if (showDebugInfo)
-                {
-                    Debug.Log($"[TapDetector] Fast movement detected - {(isLeft ? "Left" : "Right")} hand, velocity: {velocityMagnitude:F2}");
-                }
-            }
-
-            // Check for tap completion (quick movement then stop)
-            if (velocityMagnitude < tapVelocityThreshold * 0.3f && !currentlyDetected)
-            {
-                // Check if this follows a fast movement within the tap duration
                 Vector3 handDirection = GetHandForwardDirection(hand);
                 TriggerTapDetected(currentPos, handDirection, velocityMagnitude, isLeft);
                 lastTapTime = Time.time;
+                
+                Debug.Log($"[TapDetector] TAP DETECTED! {(isLeft ? "Left" : "Right")} hand - Distance: {distance:F4}m, Velocity: {velocityMagnitude:F3}m/s");
             }
 
             lastPos = currentPos;
@@ -166,11 +230,19 @@ namespace OOJUPlugin
 
         private Vector3 GetTapPosition(object hand)
         {
-            if (!isMetaXRAvailable || hand == null || !IsHandTracked(hand)) return Vector3.zero;
+            if (hand == null) return Vector3.zero;
 
             try
             {
-                // Try to get PointerPose position
+                // Try Building Blocks Hand approach first
+                var handComponent = hand as MonoBehaviour;
+                if (handComponent != null)
+                {
+                    // Use the hand's transform position directly
+                    return handComponent.transform.position;
+                }
+                
+                // Try to get PointerPose position for traditional OVRHand
                 var handType = hand.GetType();
                 var pointerPoseProperty = handType.GetProperty("PointerPose");
                 if (pointerPoseProperty != null)
@@ -187,7 +259,7 @@ namespace OOJUPlugin
                     }
                 }
 
-                // Fallback to transform position
+                // Final fallback to transform
                 var transformProperty = handType.GetProperty("transform");
                 if (transformProperty != null)
                 {
@@ -195,9 +267,12 @@ namespace OOJUPlugin
                     return transform.position;
                 }
             }
-            catch
+            catch (System.Exception e)
             {
-                // Ignore reflection errors
+                if (showDebugInfo)
+                {
+                    Debug.LogWarning($"[TapDetector] Error getting hand position: {e.Message}");
+                }
             }
 
             return Vector3.zero;
@@ -205,11 +280,18 @@ namespace OOJUPlugin
 
         private Vector3 GetHandForwardDirection(object hand)
         {
-            if (!isMetaXRAvailable || hand == null || !IsHandTracked(hand)) return Vector3.forward;
+            if (hand == null) return Vector3.forward;
 
             try
             {
-                // Use hand forward direction
+                // Use Building Blocks Hand approach first
+                var handComponent = hand as MonoBehaviour;
+                if (handComponent != null)
+                {
+                    return handComponent.transform.forward;
+                }
+                
+                // Fallback to reflection
                 var handType = hand.GetType();
                 var transformProperty = handType.GetProperty("transform");
                 if (transformProperty != null)
@@ -220,7 +302,7 @@ namespace OOJUPlugin
             }
             catch
             {
-                // Ignore reflection errors
+                // Ignore errors
             }
 
             return Vector3.forward;

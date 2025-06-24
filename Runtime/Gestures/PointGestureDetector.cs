@@ -64,16 +64,36 @@ namespace OOJUPlugin
 
         private bool CheckMetaXRAvailability()
         {
-            // Try to find OVRHand type using reflection
+            // Try to find OVRHand type using more robust search
             try
             {
-                var ovrHandType = System.Type.GetType("OVRHand");
-                return ovrHandType != null;
+                // Search through all loaded assemblies
+                foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    try
+                    {
+                        var types = assembly.GetTypes();
+                        foreach (var type in types)
+                        {
+                            if (type.Name == "OVRHand" || type.FullName.EndsWith(".OVRHand"))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    catch (System.Exception)
+                    {
+                        // Skip assemblies that can't be loaded
+                        continue;
+                    }
+                }
             }
             catch
             {
                 return false;
             }
+            
+            return false;
         }
 
         public void UpdateDetection()
