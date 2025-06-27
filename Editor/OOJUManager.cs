@@ -1,4 +1,3 @@
-
 using UnityEditor;
 using UnityEngine;
 using System.Collections;
@@ -902,9 +901,12 @@ namespace OOJUPlugin
                 EditorGUILayout.LabelField("Control with Hands", sectionTitleStyle);
                 EditorGUILayout.EndHorizontal();
                 GUILayout.Space(2);
+                // 안내 문구 추가
+                EditorGUILayout.HelpBox(
+                    "This feature is under development. We recommend using the Meta XR All-in-One Kit for hand interactions.",
+                    MessageType.Info);
                 EditorGUILayout.LabelField("Make objects respond to your hand gestures in XR.", EditorStyles.miniLabel);
                 GUILayout.Space(8);
-                
                 // Selected object info
                 GameObject selectedObj = Selection.activeGameObject;
                 if (selectedObj == null)
@@ -912,17 +914,14 @@ namespace OOJUPlugin
                     EditorGUILayout.HelpBox("Please select an object in the scene to add hand gesture control.", MessageType.Info);
                     return;
                 }
-                
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Selected Object:", EditorStyles.boldLabel, GUILayout.Width(100));
                 EditorGUILayout.ObjectField(selectedObj, typeof(GameObject), true);
                 EditorGUILayout.EndHorizontal();
                 GUILayout.Space(8);
-                
                 // Gesture selection
                 EditorGUILayout.LabelField("Choose a Hand Gesture:", EditorStyles.boldLabel);
                 GUILayout.Space(4);
-                
                 string[] gestureLabels = {
                     "👆 Point to select objects",
                     "🤏 Pinch", 
@@ -930,33 +929,25 @@ namespace OOJUPlugin
                     "👉 Tap",
                     "🤚 Wave"
                 };
-                
                 selectedGesture = (HandGesture)EditorGUILayout.Popup((int)selectedGesture, gestureLabels);
                 GUILayout.Space(8);
-                
                 // Show effect description for selected gesture
                 EditorGUILayout.LabelField("Effect:", EditorStyles.boldLabel);
                 GUILayout.Space(4);
-                
                 string effectDescription = GetDetailedEffectDescription(selectedGesture);
+                // 안내 문구 추가
+                effectDescription = effectDescription + "\n\nThis feature is under development. We recommend using the Meta XR All-in-One Kit for hand interactions.";
                 GUIStyle effectStyle = new GUIStyle(EditorStyles.helpBox);
                 effectStyle.padding = new RectOffset(12, 12, 10, 10);
                 effectStyle.fontSize = 12;
                 effectStyle.normal.textColor = DescriptionTextColor;
                 effectStyle.wordWrap = true;
                 effectStyle.alignment = TextAnchor.UpperLeft;
-                
-                // Calculate height based on content
                 float textHeight = effectStyle.CalcHeight(new GUIContent(effectDescription), EditorGUIUtility.currentViewWidth - 40);
-                float minHeight = Mathf.Max(80f, textHeight + 20f); // Ensure minimum height and add some padding
-                
+                float minHeight = Mathf.Max(80f, textHeight + 20f);
                 EditorGUILayout.LabelField(effectDescription, effectStyle, GUILayout.Height(minHeight), GUILayout.ExpandWidth(true));
-                
-                // Auto-set gestureReaction based on selected gesture
                 gestureReaction = GetEffectName(selectedGesture);
-                
                 GUILayout.Space(10);
-                
                 // Create gesture button
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
@@ -964,12 +955,14 @@ namespace OOJUPlugin
                 Color prevContent = GUI.contentColor;
                 GUI.backgroundColor = ButtonBgColor;
                 GUI.contentColor = ButtonTextColor;
-                
                 if (GUILayout.Button(new GUIContent("Create Hand Control", "Create gesture-based interaction for this object."), GUILayout.Width(buttonWidth), GUILayout.Height(30)))
                 {
-                    CreateHandControl();
+                    // 안내 다이얼로그 표시
+                    EditorUtility.DisplayDialog(
+                        "Hand Control (Under Development)",
+                        "This feature is under development. We recommend using the Meta XR All-in-One Kit for hand interactions.",
+                        "OK");
                 }
-                
                 GUI.backgroundColor = prevBg;
                 GUI.contentColor = prevContent;
                 GUILayout.FlexibleSpace();
